@@ -31,6 +31,20 @@ final class DesktopSmoke {
         }
         if (frames == 6) {
             capture("settings");
+            resizing = true;
+            try {
+                key(Input.Keys.UP);
+                key(Input.Keys.RIGHT);
+                require(g.displayMode == DisplayMode.BORDERLESS && !Gdx.graphics.isFullscreen(), "borderless mode");
+                key(Input.Keys.RIGHT);
+                require(g.displayMode == DisplayMode.FULLSCREEN && Gdx.graphics.isFullscreen(), "fullscreen mode");
+                key(Input.Keys.RIGHT);
+                require(g.displayMode == DisplayMode.WINDOWED && !Gdx.graphics.isFullscreen(), "windowed mode");
+                require(Gdx.app.getPreferences("inkslayer-display").getString("mode").equals("WINDOWED"), "display preference");
+                key(Input.Keys.DOWN);
+            } finally {
+                resizing = false;
+            }
             int value = g.audio.volume(Channel.MASTER);
             key(Input.Keys.LEFT);
             require(g.audio.volume(Channel.MASTER) == Math.max(0, value - 5), "master slider");
@@ -39,10 +53,8 @@ final class DesktopSmoke {
             key(Input.Keys.UP);
             key(Input.Keys.UP);
             key(Input.Keys.ENTER);
-            require(g.mode == GameScreen.Mode.SLOTS, "New route");
-            require(!g.slots.getFirst().occupied(), "use an empty -Dinkslayer.saves directory for smoke");
-            key(Input.Keys.ENTER);
-            require(g.mode == GameScreen.Mode.CINEMATIC, "opening route");
+            require(g.mode == GameScreen.Mode.CINEMATIC && g.panel == 0, "New must open the prologue directly");
+            require(g.slot == 0 && !g.saveStore.inspect(0).occupied(), "use an empty -Dinkslayer.saves directory for smoke");
             return;
         }
         if (frames == 7) {
@@ -88,7 +100,7 @@ final class DesktopSmoke {
                     require(g.mode == GameScreen.Mode.TITLE, "save and return");
                     key(Input.Keys.DOWN);
                     key(Input.Keys.ENTER);
-                    require(g.mode == GameScreen.Mode.SLOTS && !g.newGame, "Save menu");
+                    require(g.mode == GameScreen.Mode.SLOTS, "Save menu");
                     capture("saves");
                     key(Input.Keys.ENTER);
                     require(g.mode == GameScreen.Mode.GAME && g.run.encounter == 2 && g.learning.containsKey("水"), "checkpoint load");

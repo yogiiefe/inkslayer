@@ -3,8 +3,10 @@ package com.yogiiefe.inkslayer.lwjgl3;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.Files;
+import com.badlogic.gdx.Gdx;
 import com.yogiiefe.inkslayer.Main;
 import com.yogiiefe.inkslayer.save.SaveStore;
+import com.yogiiefe.inkslayer.screens.DisplayMode;
 
 /** Launches the desktop (LWJGL3) application. */
 public class Lwjgl3Launcher {
@@ -14,7 +16,45 @@ public class Lwjgl3Launcher {
     }
 
     private static Lwjgl3Application createApplication() {
-        return new Lwjgl3Application(new Main(), getDefaultConfiguration());
+        var display = new DesktopDisplay();
+        return new Lwjgl3Application(new Main(display::apply), getDefaultConfiguration());
+    }
+
+    private static final class DesktopDisplay {
+        private DisplayMode current = DisplayMode.WINDOWED;
+        private int width, height, x, y;
+
+        boolean apply(DisplayMode mode) {
+            if (mode == current) return true;
+            var graphics = (com.badlogic.gdx.backends.lwjgl3.Lwjgl3Graphics) Gdx.graphics;
+            var window = graphics.getWindow();
+            var monitor = graphics.getMonitor();
+            var desktop = graphics.getDisplayMode(monitor);
+            if (current == DisplayMode.WINDOWED) {
+                width = graphics.getLogicalWidth();
+                height = graphics.getLogicalHeight();
+                x = window.getPositionX();
+                y = window.getPositionY();
+            }
+            boolean changed;
+            switch (mode) {
+                case WINDOWED -> {
+                    changed = graphics.setWindowedMode(width, height);
+                    if (changed) window.setPosition(x, y);
+                }
+                case BORDERLESS -> {
+                    changed = graphics.setWindowedMode(desktop.width, desktop.height);
+                    if (changed) window.setPosition(monitor.virtualX, monitor.virtualY);
+                }
+                case FULLSCREEN -> changed = graphics.setFullscreenMode(desktop);
+                default -> throw new AssertionError(mode);
+            }
+            if (changed) {
+                graphics.setUndecorated(mode == DisplayMode.BORDERLESS);
+                current = mode;
+            }
+            return changed;
+        }
     }
 
     private static Lwjgl3ApplicationConfiguration getDefaultConfiguration() {

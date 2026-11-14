@@ -31,7 +31,7 @@ Pekerjaan baru mencakup Metal, recognition banyak karakter, defensive counter, p
 
 ```text
 Main Menu
-  New → pilih slot → opening cinematic → Stage 1
+  New → opening cinematic → Stage 1
   Save → daftar slot → Load → checkpoint terakhir
   Settings → Master / SFX / BGM → kembali
   Exit → tutup game
@@ -43,7 +43,7 @@ Stage 1 → Stage 2 → Stage 3 → Stage 4 → Mr. Kotoba
   → ending cinematic → simpan status tamat → Main Menu
 ```
 
-New memulai kampanye setelah slot dipilih. Slot terisi membutuhkan konfirmasi sebelum ditimpa. Save membuka daftar permainan tersimpan dengan tombol Load. Pause menyediakan Save & Return to Menu pada checkpoint aman. Pemain dapat membaca ulang materi yang sudah dibuka melalui journal.
+New langsung memutar opening dan memakai slot kosong pertama. Jika ketiga slot penuh, kampanye baru berjalan tanpa penyimpanan. Save membuka daftar permainan tersimpan dengan tombol Load. Pause menyediakan Save & Return to Menu pada checkpoint aman untuk kampanye yang memiliki slot. Pemain dapat membaca ulang materi yang sudah dibuka melalui journal.
 
 ## Tampilan dan input
 

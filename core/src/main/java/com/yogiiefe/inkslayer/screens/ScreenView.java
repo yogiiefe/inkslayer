@@ -270,7 +270,7 @@ final class ScreenView implements Disposable {
 
     private void slots() {
         panel(292, 90, 696, 530);
-        center(large, g.newGame ? "New Game" : "Save Files", 640, 574, PAPER);
+        center(large, "Save Files", 640, 574, PAPER);
         for (int i = 0; i < g.slots.size(); i++) {
             var slot = g.slots.get(i);
             int y = 425 - i * 90;
@@ -288,17 +288,16 @@ final class ScreenView implements Disposable {
                     + SAVE_DATE.format(Instant.ofEpochMilli(progress.savedAt())) + (slot.recovered() ? "    Backup" : ""),
                     340, y + 26, MUTED);
             }
-            if (g.newGame || slot.loadable())
-                right(small, g.newGame ? g.overwrite == i ? "Confirm overwrite" : "Start" : "Load", 938, y + 51, ACCENT);
+            if (slot.loadable()) right(small, "Load", 938, y + 51, ACCENT);
         }
-        String message = g.overwrite >= 0 ? "Choose this slot again to replace its campaign." : g.saveMessage;
-        center(small, message, 640, 201, PINK);
+        center(small, g.saveMessage, 640, 201, PINK);
         button("Back", 490, 116, 300, 44, false);
     }
 
     private void settings() {
         panel(338, 104, 604, 513);
         center(large, "Settings", 640, 562, PAPER);
+        button("Display: " + g.displayMode.label, 490, 473, 300, 44, g.setting == 3);
         String[] names = {"Master", "SFX", "BGM"};
         for (int i = 0; i < names.length; i++) {
             int y = 406 - i * 76;
@@ -310,7 +309,7 @@ final class ScreenView implements Disposable {
             right(body, value + "%", 904, y + 18, PAPER);
         }
         button(g.strict ? "Stroke order: Strict" : "Stroke order: Coaching", 490, 204, 300, 40, false);
-        center(small, "Arrow keys or mouse to adjust volume", 640, 183, MUTED);
+        center(small, "Use the mouse or arrow keys to change settings", 640, 183, MUTED);
         button("Back", 490, 136, 300, 42, true);
         center(small, g.settingsMessage, 640, 125, PINK);
     }
@@ -323,8 +322,9 @@ final class ScreenView implements Disposable {
         button("Resume", 460, 366, 360, 46, true);
         button("Journal", 460, 307, 360, 46, false);
         button("Settings", 460, 248, 360, 46, false);
-        button("Save & Return to Menu", 460, 189, 360, 46, false);
-        center(small, g.saveMessage.isEmpty() ? "Resumes at the encounter checkpoint." : g.saveMessage, 640, 179, MUTED);
+        button(g.slot < 0 ? "Return to Menu" : "Save & Return to Menu", 460, 189, 360, 46, false);
+        center(small, g.slot < 0 ? "All slots are full. This run is unsaved."
+            : g.saveMessage.isEmpty() ? "Resumes at the encounter checkpoint." : g.saveMessage, 640, 179, MUTED);
     }
 
     private void journal() {
@@ -377,7 +377,8 @@ final class ScreenView implements Disposable {
         write(body, g.panels().get(g.panel), 270, 164, 740, Align.center, PAPER);
         button("Next", 300, 50, 190, 44, false);
         button("Skip", 790, 50, 190, 44, false);
-        if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 34, PINK);
+        if (g.slot < 0) center(small, "All slots are full. This run is unsaved.", 640, 34, PINK);
+        else if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 34, PINK);
     }
 
     private void template(String id, float x, float y, float size) {

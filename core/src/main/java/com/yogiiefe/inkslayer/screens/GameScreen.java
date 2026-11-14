@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public final class GameScreen extends ScreenAdapter {
     enum Mode { TITLE, SLOTS, SETTINGS, CINEMATIC, GAME, PAUSE, JOURNAL, PRACTICE }
@@ -47,13 +48,16 @@ public final class GameScreen extends ScreenAdapter {
     final SaveStore saveStore = new SaveStore(SaveStore.defaultDirectory());
     private final KanjiRecognizer recognizer;
     private final ScreenView view;
+    private final Predicate<DisplayMode> applyDisplay;
+    private final com.badlogic.gdx.Preferences displayPreferences = Gdx.app.getPreferences("inkslayer-display");
+    DisplayMode displayMode = DisplayMode.WINDOWED;
 
     Mode mode = Mode.TITLE;
     Mode settingsReturn = Mode.TITLE, journalReturn = Mode.GAME;
     TitleMenu.Option titleSelection = TitleMenu.Option.NEW, titleHover;
     List<SaveStore.Slot> slots = List.of();
-    int slot, slotSelection, overwrite = -1;
-    boolean newGame, ending, endingPending, completed, hint, assisted, strict;
+    int slot = -1, slotSelection;
+    boolean ending, endingPending, completed, hint, assisted, strict;
     int panel, choice, setting, journalPage;
     double effectTime;
     double elapsed, playTime, panelTime;
@@ -69,9 +73,11 @@ public final class GameScreen extends ScreenAdapter {
     private double accumulator;
     private DesktopSmoke smoke;
 
-    public GameScreen(CampaignContent content, Map<String, List<List<InkPoint>>> templates) {
+    public GameScreen(CampaignContent content, Map<String, List<List<InkPoint>>> templates,
+                      Predicate<DisplayMode> applyDisplay) {
         this.content = content;
         this.templates = templates;
+        this.applyDisplay = applyDisplay;
         run = new CampaignRun(content);
         recognizer = KanjiRecognizer.fromTemplates(templates, 0.145);
         view = new ScreenView(this);
@@ -80,6 +86,13 @@ public final class GameScreen extends ScreenAdapter {
     @Override public void show() {
         Gdx.input.setInputProcessor(new Controls());
         audio.music(Track.MENU);
+        String saved = displayPreferences.getString("mode");
+        for (DisplayMode mode : DisplayMode.values()) {
+            if (mode.name().equals(saved) && mode != DisplayMode.WINDOWED) {
+                Gdx.app.postRunnable(() -> changeDisplay(mode));
+                break;
+            }
+        }
     }
 
     @Override public void render(float delta) {
@@ -122,11 +135,24 @@ public final class GameScreen extends ScreenAdapter {
         audio.music(Track.MENU);
     }
 
-    private void openSlots(boolean create) {
-        newGame = create;
-        slots = java.util.stream.IntStream.range(0, 3).mapToObj(saveStore::inspect).toList();
+    private void startNewGame() {
+        slot = -1;
+        for (int index = 0; index < SaveStore.SLOT_COUNT; index++) {
+            if (!saveStore.inspect(index).occupied()) {
+                slot = index;
+                break;
+            }
+        }
+        learning.clear();
+        playTime = 0;
+        endingPending = completed = false;
+        run.restore(0, 0);
+        cinematic(false);
+    }
+
+    private void openSlots() {
+        slots = java.util.stream.IntStream.range(0, SaveStore.SLOT_COUNT).mapToObj(saveStore::inspect).toList();
         slotSelection = 0;
-        overwrite = -1;
         saveMessage = "";
         mode = Mode.SLOTS;
     }
@@ -134,18 +160,7 @@ public final class GameScreen extends ScreenAdapter {
     private void selectSlot(int selected) {
         slotSelection = selected;
         var entry = slots.get(selected);
-        if (newGame) {
-            if (entry.occupied() && overwrite != selected) {
-                overwrite = selected;
-                return;
-            }
-            slot = selected;
-            learning.clear();
-            playTime = 0;
-            endingPending = completed = false;
-            run.restore(0, 0);
-            cinematic(false);
-        } else if (entry.loadable()) {
+        if (entry.loadable()) {
             slot = selected;
             var data = entry.progress();
             learning.clear();
@@ -162,6 +177,7 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private boolean save() {
+        if (slot < 0) return true;
         int stage = run.stage;
         int encounter = run.encounter;
         if (run.phase == Phase.WON && !run.isBoss()
@@ -489,13 +505,31 @@ public final class GameScreen extends ScreenAdapter {
         }
     }
 
+    private void cycleDisplay(int direction) {
+        var modes = DisplayMode.values();
+        changeDisplay(modes[Math.floorMod(displayMode.ordinal() + direction, modes.length)]);
+    }
+
+    boolean changeDisplay(DisplayMode target) {
+        if (!applyDisplay.test(target)) {
+            settingsMessage = "This display mode is unavailable.";
+            return false;
+        }
+        displayMode = target;
+        settingsMessage = "";
+        try {
+            displayPreferences.putString("mode", target.name()).flush();
+        } catch (com.badlogic.gdx.utils.GdxRuntimeException ex) {
+            Gdx.app.error("Settings", "Could not save display mode", ex);
+            settingsMessage = "Display mode could not be saved.";
+        }
+        return true;
+    }
+
     private void back() {
         switch (mode) {
             case TITLE -> {}
-            case SLOTS -> {
-                if (overwrite >= 0) overwrite = -1;
-                else menu();
-            }
+            case SLOTS -> menu();
             case SETTINGS -> closeSettings();
             case CINEMATIC -> finishCinematic();
             case GAME -> { cancelStroke(); mode = Mode.PAUSE; }
@@ -510,8 +544,8 @@ public final class GameScreen extends ScreenAdapter {
         audio.play(Cue.UI);
         titleSelection = option;
         switch (option) {
-            case NEW -> openSlots(true);
-            case SAVE -> openSlots(false);
+            case NEW -> startNewGame();
+            case SAVE -> openSlots();
             case SETTINGS -> settings(Mode.TITLE);
             case EXIT -> Gdx.app.exit();
         }
@@ -565,6 +599,7 @@ public final class GameScreen extends ScreenAdapter {
             case SETTINGS -> {
                 if (hit(x, y, 490, 136, 300, 42)) back();
                 else if (hit(x, y, 490, 204, 300, 40)) strict = !strict;
+                else if (hit(x, y, 490, 473, 300, 44)) { setting = 3; cycleDisplay(1); }
             }
             case CINEMATIC -> {
                 if (hit(x, y, 790, 50, 190, 44)) finishCinematic();
@@ -611,14 +646,14 @@ public final class GameScreen extends ScreenAdapter {
                 case SLOTS -> {
                     if (key == Input.Keys.UP || key == Input.Keys.DOWN) {
                         slotSelection = Math.floorMod(slotSelection + (key == Input.Keys.UP ? -1 : 1), 3);
-                        overwrite = -1;
                     } else if (key == Input.Keys.ENTER) selectSlot(slotSelection);
                 }
                 case SETTINGS -> {
-                    if (key == Input.Keys.UP || key == Input.Keys.DOWN) setting = Math.floorMod(setting + (key == Input.Keys.UP ? -1 : 1), 3);
+                    if (key == Input.Keys.UP || key == Input.Keys.DOWN) setting = Math.floorMod(setting + (key == Input.Keys.UP ? -1 : 1), 4);
                     else if (key == Input.Keys.LEFT || key == Input.Keys.RIGHT) {
-                        int old = audio.volume(Channel.values()[setting]);
-                        changeVolume(setting, Math.clamp(old + (key == Input.Keys.LEFT ? -5 : 5), 0, 100));
+                        int direction = key == Input.Keys.LEFT ? -1 : 1;
+                        if (setting == 3) cycleDisplay(direction);
+                        else changeVolume(setting, Math.clamp(audio.volume(Channel.values()[setting]) + direction * 5, 0, 100));
                     } else if (key == Input.Keys.ENTER) back();
                 }
                 case CINEMATIC -> {

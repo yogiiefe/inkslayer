@@ -5,13 +5,21 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.utils.JsonReader;
 import com.yogiiefe.inkslayer.recognition.InkPoint;
 import com.yogiiefe.inkslayer.screens.GameScreen;
+import com.yogiiefe.inkslayer.screens.DisplayMode;
 import com.yogiiefe.inkslayer.world.CampaignContent;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.Predicate;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public final class Main extends Game {
+    private final Predicate<DisplayMode> applyDisplay;
+
+    public Main(Predicate<DisplayMode> applyDisplay) {
+        this.applyDisplay = applyDisplay;
+    }
+
     @Override public void create() {
         var content = new CampaignContent(Gdx.files.internal("data/campaign.json").readString("UTF-8"));
         var source = new JsonReader().parse(Gdx.files.internal("data/kanji/templates.json"));
@@ -27,7 +35,7 @@ public final class Main extends Game {
         }
         if (!templates.keySet().equals(content.lessons.keySet()))
             throw new IllegalArgumentException("Campaign lessons must each have a drawing template.");
-        setScreen(new GameScreen(content, templates));
+        setScreen(new GameScreen(content, templates, applyDisplay));
     }
     @Override public void dispose() { if(getScreen()!=null) getScreen().dispose(); }
 }

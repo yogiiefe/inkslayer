@@ -12,11 +12,13 @@ Alternatively, from any working directory:
 & 'C:\Program Files\Java\jdk-21.0.12.1\bin\java.exe' -jar 'C:\Users\Administrator\Documents\inkslayer\lwjgl3\build\libs\INKSLAYER!-1.0.0.jar'
 ```
 
-Select **New**, choose a slot, and watch or skip the prologue. Walk right into the first lesson and encounter. Draw the Kanji of a learned element to attack. When the monster announces its attack, draw the element that counters it or press **G** to guard.
+Select **New** to watch or skip the prologue. The game automatically uses the first empty save slot. If all slots are occupied, the new run plays without saving. Walk right into the first lesson and encounter. Draw the Kanji of a learned element to attack. When the monster announces its attack, draw the element that counters it or press **G** to guard.
 
 The campaign has four stages and 40 encounters, ending with three rounds against Mr. Kotoba. **Save** on the main menu loads a checkpoint. The game saves before the first encounter, after each win, and at the ending. **Save & Return to Menu** in pause preserves lesson progress and resumes at the current encounter checkpoint.
 
 ## Controls
+
+In Settings, select **Display** to switch between Windowed, Borderless, and Fullscreen. Click the option or select it with Up/Down and change it with Left/Right. The display mode is saved for the next launch.
 
 | Action | Control |
 | --- | --- |
