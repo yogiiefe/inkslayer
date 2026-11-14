@@ -7,6 +7,7 @@ import com.yogiiefe.inkslayer.recognition.InkPoint;
 import com.yogiiefe.inkslayer.screens.GameScreen;
 import com.yogiiefe.inkslayer.screens.DisplayMode;
 import com.yogiiefe.inkslayer.world.CampaignContent;
+import com.yogiiefe.inkslayer.world.FillQuiz;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,7 +23,8 @@ public final class Main extends Game {
 
     @Override public void create() {
         var content = new CampaignContent(Gdx.files.internal("data/campaign.json").readString("UTF-8"));
-        var source = new JsonReader().parse(Gdx.files.internal("data/kanji/templates.json"));
+        var quizzes = FillQuiz.parse(Gdx.files.internal("data/fill-quizzes.tsv").readString("UTF-8"));
+        var source = new JsonReader().parse(Gdx.files.internal("data/kanji/fill-templates.json"));
         var templates = new LinkedHashMap<String, List<List<InkPoint>>>();
         for (var glyph : source) {
             var strokes = new ArrayList<List<InkPoint>>();
@@ -33,9 +35,9 @@ public final class Main extends Game {
             }
             templates.put(glyph.name(), List.copyOf(strokes));
         }
-        if (!templates.keySet().equals(content.lessons.keySet()))
-            throw new IllegalArgumentException("Campaign lessons must each have a drawing template.");
-        setScreen(new GameScreen(content, templates, applyDisplay));
+        if (quizzes.stream().anyMatch(quiz -> !templates.containsKey(quiz.kanji())))
+            throw new IllegalArgumentException("Campaign quizzes must each have a drawing template.");
+        setScreen(new GameScreen(content, quizzes, templates, applyDisplay));
     }
     @Override public void dispose() { if(getScreen()!=null) getScreen().dispose(); }
 }

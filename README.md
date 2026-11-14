@@ -12,9 +12,9 @@ Alternatively, from any working directory:
 & 'C:\Program Files\Java\jdk-21.0.12.1\bin\java.exe' -jar 'C:\Users\Administrator\Documents\inkslayer\lwjgl3\build\libs\INKSLAYER!-1.0.0.jar'
 ```
 
-Select **New** to watch or skip the prologue. The game automatically uses the first empty save slot. If all slots are occupied, the new run plays without saving. Walk right into the first lesson and encounter. Draw the Kanji of a learned element to attack. When the monster announces its attack, draw the element that counters it or press **G** to guard.
+Select **New** to watch or skip the text prologue. The game automatically uses the first empty save slot. If all slots are occupied, the new run plays without saving. Walk right to meet a monster. Read the full English clue in its speech bubble, draw the missing Kanji anywhere below the floor line, then submit. A correct drawing completes the sentence and casts a spell.
 
-The campaign has four stages and 40 encounters, ending with three rounds against Mr. Kotoba. **Save** on the main menu loads a checkpoint. The game saves before the first encounter, after each win, and at the ending. **Save & Return to Menu** in pause preserves lesson progress and resumes at the current encounter checkpoint.
+The campaign has 39 different Kanji quizzes across Elements, Pets, Weather, and Food. Mr. Kotoba tests the katakana readings of four Kanji introduced earlier. **Save** on the main menu loads a checkpoint. The game saves before the first encounter, after each win, and at the ending. **Save & Return to Menu** in pause resumes at the current encounter checkpoint.
 
 ## Controls
 
@@ -23,12 +23,11 @@ In Settings, select **Display** to switch between Windowed, Borderless, and Full
 | Action | Control |
 | --- | --- |
 | Walk | A / D or Left / Right |
-| Answer a reading or vocabulary prompt | Click a card, or use Left / Right and Enter |
+| Compose a Kotoba answer | Click katakana tiles, or select with Left / Right and add with Space. Backspace removes the last tile. |
 | Draw a stroke | Hold left mouse button, then release |
 | Submit | Enter |
 | Undo | Ctrl+Z while drawing |
 | Clear | R while drawing |
-| Guard | G during a monster attack |
 | Drawing guide or answer hint | H |
 | Kanji journal | Tab during play |
 | Safe drawing practice | Tab while walking, then Practice (Q) in the journal |
@@ -62,6 +61,6 @@ Optional window properties: `-Dinkslayer.width=1280 -Dinkslayer.height=720 -Dink
 
 Rencana kampanye empat stage dan 40 encounter tersedia di [BUILD_PLAN.md](docs/BUILD_PLAN.md).
 
-The campaign includes five elemental spells, 15 Kanji, eight katakana words, hiragana reading exercises, opening and ending sequences, local saves and original audio. Art and animation use code-drawn pixel graphics. Pronunciation recordings, human Japanese-language review and beginner handwriting calibration are pending.
+The Fill the Blank build uses monochrome pixel placeholders and DotGothic16 pixel text for Latin and Japanese. See the [quiz list](docs/FILL_THE_BLANK_QUIZZES.md) and [battle layout](docs/FILL_THE_BLANK_LAYOUT.md). Pronunciation recordings, human Japanese-language review and beginner handwriting calibration are pending.
 
 See [GDD](docs/GDD.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), [recognition](docs/RECOGNITION.md), and [asset manifest](docs/ASSET_MANIFEST.md). Font and KanjiVG attribution/licenses are in [credits](assets/CREDITS.md), also included in the JAR.

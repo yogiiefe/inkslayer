@@ -20,11 +20,10 @@ import com.yogiiefe.inkslayer.save.SaveStore.Learning;
 import com.yogiiefe.inkslayer.save.SaveStore.Progress;
 import com.yogiiefe.inkslayer.world.CampaignContent;
 import com.yogiiefe.inkslayer.world.CampaignRun;
+import com.yogiiefe.inkslayer.world.FillQuiz;
 import com.yogiiefe.inkslayer.world.CampaignRun.Phase;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -33,12 +32,12 @@ import java.util.function.Predicate;
 
 public final class GameScreen extends ScreenAdapter {
     enum Mode { TITLE, SLOTS, SETTINGS, CINEMATIC, GAME, PAUSE, JOURNAL, PRACTICE }
-    enum Exercise { INTRO, READING, MEANING, TRACE, RECALL, KANA_INTRO, KATAKANA }
-    static final int CANVAS_X = 328, CANVAS_WIDTH = 584, CANVAS_TOP = 250;
+    static final int CANVAS_X = 0, CANVAS_WIDTH = 1280, CANVAS_TOP = 260;
     static final int GUIDE_SIZE = 176, GUIDE_X = 552, GUIDE_Y = 54;
     private static final Track[] STAGE_TRACKS = {Track.STAGE1, Track.STAGE2, Track.STAGE3, Track.STAGE4};
 
     final CampaignContent content;
+    final List<FillQuiz> quizzes;
     final CampaignRun run;
     final Map<String, List<List<InkPoint>>> templates;
     final Drawing drawing = new Drawing();
@@ -63,19 +62,23 @@ public final class GameScreen extends ScreenAdapter {
     double elapsed, playTime, panelTime;
     float mouseX = -1, mouseY = -1;
     String feedback = "", saveMessage = "", settingsMessage = "";
-    String glyph, kanaWord, practiceGlyph;
-    String effectElement;
-    boolean effectHitsPlayer;
-    Exercise exercise;
-    List<String> answers = List.of();
-    private String answer;
+    String practiceGlyph;
+    String kanaInput = "";
+    int tileSelection;
     private int examIndex, pointer = -1;
+    private double correctTime = -1;
+    private final List<FillQuiz> bossQuizzes;
+
     private double accumulator;
     private DesktopSmoke smoke;
 
-    public GameScreen(CampaignContent content, Map<String, List<List<InkPoint>>> templates,
+    public GameScreen(CampaignContent content, List<FillQuiz> quizzes, Map<String, List<List<InkPoint>>> templates,
                       Predicate<DisplayMode> applyDisplay) {
         this.content = content;
+        this.quizzes = quizzes;
+        bossQuizzes = List.of("水", "猫", "雨", "卵").stream()
+            .map(id -> quizzes.stream().filter(quiz -> quiz.kanji().equals(id)).findFirst().orElseThrow())
+            .toList();
         this.templates = templates;
         this.applyDisplay = applyDisplay;
         run = new CampaignRun(content);
@@ -102,12 +105,16 @@ public final class GameScreen extends ScreenAdapter {
         if (mode == Mode.GAME) {
             playTime += frame;
             if (run.phase == Phase.WALK) walk(frame);
+            else if (correctTime >= 0) {
+                correctTime -= frame;
+                if (correctTime <= 0) nextQuiz();
+            }
         } else if (mode == Mode.CINEMATIC && saveMessage.isEmpty()) {
             panelTime += frame;
             if (panelTime >= 9) nextPanel();
         }
         viewport.apply();
-        ScreenUtils.clear(0.035f, 0.039f, 0.068f, 1);
+        ScreenUtils.clear(0.035f, 0.035f, 0.035f, 1);
         view.render();
         if (Boolean.getBoolean("inkslayer.smoke")) {
             if (smoke == null) smoke = new DesktopSmoke();
@@ -197,7 +204,10 @@ public final class GameScreen extends ScreenAdapter {
         }
     }
 
-    List<String> panels() { return ending ? content.ending : content.opening; }
+    List<String> panels() {
+        return ending ? content.ending : List.of("In this world", "Everyone speak Japanese",
+            "Except me! I'm the only one that can't speak Japanese");
+    }
 
     private void cinematic(boolean finalScene) {
         ending = finalScene;
@@ -226,7 +236,7 @@ public final class GameScreen extends ScreenAdapter {
 
     private void enterStage() {
         clearDrawing();
-        exercise = null;
+        correctTime = -1;
         mode = Mode.GAME;
         accumulator = 0;
         effectTime = 0;
@@ -235,103 +245,51 @@ public final class GameScreen extends ScreenAdapter {
 
     private void beginLesson() {
         examIndex = 0;
-        if (run.isBoss()) {
-            audio.music(Track.BOSS);
-            beginExam();
-        } else {
-            glyph = run.enemy().lessonId();
-            if (glyph == null || glyph.isEmpty()) finishLesson();
-            else if ((run.stage == 3 || run.encounter >= 5) && learning.containsKey(glyph)) {
-                glyph = reviewGlyph(glyph);
-                startExercise(Exercise.RECALL);
-            } else startExercise(Exercise.INTRO);
-        }
-    }
-
-    private String reviewGlyph(String preferred) {
-        boolean mixedReview = run.stage == 3 ? run.encounter == 8 : run.encounter % 2 != 0;
-        if (!mixedReview) return preferred;
-        return content.lessons.keySet().stream().filter(learning::containsKey)
-            .min(java.util.Comparator.<String>comparingLong(id -> learning.get(id).lastReviewed())
-                .thenComparing(java.util.Comparator.<String>comparingInt(id -> learning.get(id).errors()).reversed())
-                .thenComparing(id -> id))
-            .orElse(preferred);
-    }
-
-    private void beginExam() {
-        glyph = content.bossRounds.get(run.round).get(examIndex);
-        startExercise(switch (examIndex) {
-            case 0, 3 -> Exercise.MEANING;
-            case 1 -> Exercise.READING;
-            default -> Exercise.RECALL;
-        });
-    }
-
-    CampaignContent.Lesson lesson() { return content.lessons.get(glyph); }
-
-    private void startExercise(Exercise next) {
-        boolean justIntroduced = exercise == Exercise.INTRO || exercise == Exercise.KANA_INTRO;
+        tileSelection = 0;
+        kanaInput = "";
         clearDrawing();
-        exercise = next;
-        hint = next == Exercise.TRACE;
-        assisted = hint || justIntroduced;
-        choice = 0;
-        answers = switch (next) {
-            case READING -> choices(lesson().reading(), content.lessons.values().stream().map(CampaignContent.Lesson::reading).toList());
-            case MEANING -> choices(lesson().meaning(), content.lessons.values().stream().map(CampaignContent.Lesson::meaning).toList());
-            case KATAKANA -> choices(kanaWord, content.katakana.stream().map(CampaignContent.KanaWord::text).toList());
-            default -> List.of();
-        };
+        if (run.isBoss()) audio.music(Track.BOSS);
     }
 
-    private List<String> choices(String correct, List<String> pool) {
-        answer = correct;
-        List<String> list = new ArrayList<>();
-        list.add(correct);
-        pool.stream().filter(option -> !option.equals(correct)).distinct().sorted().limit(2).forEach(list::add);
-        java.util.Collections.rotate(list, Math.floorMod(run.encounter + examIndex + exercise.ordinal(), list.size()));
-        return list;
+    FillQuiz quiz() {
+        return run.isBoss() ? bossQuizzes.get(examIndex) : quizzes.get(run.stage * 10 + run.encounter);
     }
 
-    CampaignContent.KanaWord kana() {
-        return content.katakana.stream().filter(word -> word.text().equals(kanaWord))
-            .findFirst().orElseThrow();
+    boolean revealed() { return correctTime >= 0 || run.phase == Phase.WON; }
+    int bossQuestionNumber() { return examIndex + 1; }
+    int bossQuestionCount() { return bossQuizzes.size(); }
+
+    List<String> tiles() {
+        return (quiz().katakana() + "カユソ").codePoints().distinct().sorted()
+            .mapToObj(Character::toString).toList();
     }
 
-    private void choose() {
-        if (!answers.get(choice).equals(answer)) {
-            record(exercise == Exercise.KATAKANA ? kanaWord : glyph, false, false);
-            feedback = switch (exercise) {
-                case READING -> "Reading: " + lesson().reading() + ". Try again.";
-                case MEANING -> "Meaning: " + lesson().meaning() + ". Try again.";
-                default -> "Look for " + answer + ". Try again.";
-            };
-            assisted = true;
-            audio.play(Cue.RETRY);
-            return;
-        }
+    private void addTile(int index) {
+        if (revealed() || kanaInput.length() >= quiz().katakana().length()) return;
+        kanaInput += tiles().get(index);
+    }
+
+    private void acceptQuiz() {
+        record(quiz().kanji(), true, !assisted);
+        clearDrawing();
+        correctTime = 0.75;
+        effectTime = 0.3;
         audio.play(Cue.ACCEPT);
-        record(exercise == Exercise.KATAKANA ? answer : glyph, true, !assisted);
-        if (run.isBoss() && exercise != Exercise.KATAKANA) advanceExam();
-        else if (exercise == Exercise.READING) startExercise(Exercise.TRACE);
-        else finishLesson();
     }
 
-    private void advanceExam() {
-        examIndex++;
-        if (examIndex == content.bossRounds.get(run.round).size()) {
-            kanaWord = content.katakana.get(run.round * 3).text();
-            startExercise(Exercise.KATAKANA);
+    private void nextQuiz() {
+        correctTime = -1;
+        if (run.isBoss() && examIndex + 1 < bossQuizzes.size()) {
+            examIndex++;
+            kanaInput = "";
+            tileSelection = 0;
+            clearDrawing();
+        } else {
+            run.completeQuizEncounter();
+            if (run.isBoss()) endingPending = true;
+            save();
+            audio.play(Cue.VICTORY);
         }
-        else beginExam();
-    }
-
-    private void finishLesson() {
-        exercise = null;
-        answers = List.of();
-        clearDrawing();
-        run.finishLesson();
-        if (run.phase == Phase.DEFEND) audio.play(Cue.valueOf(run.incoming()));
     }
 
     private void record(String id, boolean correct, boolean independent) {
@@ -342,96 +300,27 @@ public final class GameScreen extends ScreenAdapter {
             previous.errors() + (correct ? 0 : 1), (long) playTime));
     }
 
-    Set<String> spells() {
-        Set<String> available = new HashSet<>();
-        for (int index = 0; index < 5; index++) {
-            String learned = content.stages.getFirst().encounters().get(index).lessonId();
-            if (run.stage > 0 || run.encounter >= index) available.add(learned);
-        }
-        return available;
-    }
-
     boolean canDraw() {
-        return mode == Mode.PRACTICE || run.phase == Phase.ATTACK || run.phase == Phase.DEFEND
-            || run.phase == Phase.LESSON && (exercise == Exercise.TRACE || exercise == Exercise.RECALL);
+        return mode == Mode.PRACTICE || run.phase == Phase.LESSON && !revealed() && !run.isBoss();
     }
 
     String guideGlyph() {
-        if (!hint) return null;
-        if (mode == Mode.PRACTICE) return practiceGlyph;
-        return switch (run.phase) {
-            case LESSON -> glyph;
-            case ATTACK -> CampaignContent.GLYPHS.get(CampaignContent.COUNTERS.get(run.enemy().element()));
-            case DEFEND -> CampaignContent.GLYPHS.get(CampaignContent.COUNTERS.get(run.incoming()));
-            default -> null;
-        };
+        return hint ? mode == Mode.PRACTICE ? practiceGlyph : quiz().kanji() : null;
     }
 
     private void submit() {
         if (drawing.isActive() || !canDraw()) return;
-        if (mode == Mode.PRACTICE) {
-            var match = recognizer.match(drawing.snapshot(), strict, Set.of(practiceGlyph));
-            feedback = match.result().message();
-            audio.play(match.result().accepted() ? Cue.ACCEPT : Cue.RETRY);
-            record(practiceGlyph, match.result().accepted(), !assisted);
-            return;
-        }
-        boolean lesson = run.phase == Phase.LESSON;
-        var match = recognizer.match(drawing.snapshot(), lesson && strict, lesson ? Set.of(glyph) : spells());
-        if (match.id() == null || !match.result().accepted()) {
-            feedback = match.result().message();
-            if (lesson) record(glyph, false, false);
-            audio.play(Cue.RETRY);
-            return;
-        }
-        boolean usedHelp = assisted;
-        clearDrawing();
-        if (lesson) {
-            record(glyph, true, !usedHelp);
-            audio.play(Cue.ACCEPT);
-            if (run.isBoss()) advanceExam();
-            else if (!lesson().katakana().isEmpty()) {
-                kanaWord = lesson().katakana();
-                startExercise(learning.containsKey(kanaWord) ? Exercise.KATAKANA : Exercise.KANA_INTRO);
-            }
-            else finishLesson();
-            return;
-        }
-        String element = CampaignContent.ELEMENTS.stream()
-            .filter(id -> CampaignContent.GLYPHS.get(id).equals(match.id())).findFirst().orElseThrow();
-        record(match.id(), true, !usedHelp);
-        if (run.phase == Phase.ATTACK) {
-            int hit = run.attack(element);
-            audio.play(Cue.valueOf(element));
-            effect(element, false);
-            feedback = hit + " damage";
-            resolvePhase();
-        } else defend(element);
-    }
-
-    private void defend(String element) {
-        clearDrawing();
-        String incoming = run.incoming();
-        int hit = run.defend(element);
-        audio.play(hit == 0 ? Cue.COUNTER : Cue.HIT);
-        effect(hit == 0 ? element : incoming, hit > 0);
-        feedback = hit == 0 ? "Counter! No damage." : "You took " + hit + " damage.";
-        resolvePhase();
-    }
-
-    private void effect(String element, boolean hitsPlayer) {
-        effectElement = element;
-        effectHitsPlayer = hitsPlayer;
-        effectTime = 0.3;
-    }
-
-    private void resolvePhase() {
-        if (run.phase == Phase.LESSON) beginLesson();
-        else if (run.phase == Phase.LOST) audio.play(Cue.DEFEAT);
-        else if (run.phase == Phase.WON) {
-            if (run.isBoss()) endingPending = true;
-            save();
-            audio.play(Cue.VICTORY);
+        boolean practice = mode == Mode.PRACTICE;
+        String target = practice ? practiceGlyph : quiz().kanji();
+        var match = recognizer.match(drawing.snapshot(), practice && strict, templates.keySet());
+        boolean correct = target.equals(match.id());
+        if (correct && !practice) {
+            acceptQuiz();
+        } else {
+            feedback = match.id() == null ? match.result().message()
+                : correct ? "Correct!" : "Read the English clue and try again.";
+            record(target, correct, !assisted);
+            audio.play(correct ? Cue.ACCEPT : Cue.RETRY);
         }
     }
 
@@ -457,6 +346,28 @@ public final class GameScreen extends ScreenAdapter {
 
     private void cancelStroke() {
         drawing.cancelActive();
+        pointer = -1;
+    }
+
+    boolean beginInk(float x, float y, int index) {
+        if ((mode != Mode.GAME && mode != Mode.PRACTICE) || !canDraw() || pointer != -1
+            || !hit(x, y, CANVAS_X, 0, CANVAS_WIDTH, CANVAS_TOP)) return false;
+        pointer = index;
+        drawing.begin(x - CANVAS_X, CANVAS_TOP - y);
+        feedback = "";
+        audio.play(Cue.STROKE);
+        return true;
+    }
+
+    void moveInk(float x, float y, int index) {
+        if (index != pointer) return;
+        drawing.add(Math.clamp(x - CANVAS_X, 0, CANVAS_WIDTH), Math.clamp(CANVAS_TOP - y, 0, CANVAS_TOP));
+    }
+
+    void endInk(float x, float y, int index) {
+        if (index != pointer) return;
+        moveInk(x, y, index);
+        drawing.end();
         pointer = -1;
     }
 
@@ -557,16 +468,15 @@ public final class GameScreen extends ScreenAdapter {
         mode = Mode.JOURNAL;
     }
 
-    List<CampaignContent.Lesson> journalEntries() {
-        return content.bossRounds.stream().flatMap(List::stream)
-            .filter(id -> spells().contains(id) || learning.containsKey(id)).map(content.lessons::get).toList();
+    List<FillQuiz> journalEntries() {
+        return quizzes.subList(0, Math.min(quizzes.size(), run.stage * 10 + run.encounter + 1));
     }
 
     private void practice() {
         if (run.phase != Phase.WALK) return;
         var entries = journalEntries();
         if (entries.isEmpty()) return;
-        practiceGlyph = entries.get(journalPage).glyph();
+        practiceGlyph = entries.get(journalPage).kanji();
         clearDrawing();
         hint = assisted = true;
         mode = Mode.PRACTICE;
@@ -619,14 +529,15 @@ public final class GameScreen extends ScreenAdapter {
                 else if (count > 0 && hit(x, y, 788, 115, 180, 42)) journalPage = (journalPage + 1) % count;
             }
             case GAME -> {
-                if (run.phase == Phase.LESSON && !answers.isEmpty()) {
-                    for (int i = 0; i < answers.size(); i++) {
-                        if (hit(x, y, 346 + i * 194, 78, 178, 58)) { choice = i; choose(); break; }
+                if (hit(x, y, 24, 646, 172, 46)) { cancelStroke(); journal(mode); }
+                else if (hit(x, y, 208, 646, 132, 46)) { cancelStroke(); settings(mode); }
+                else if (run.phase == Phase.WON && hit(x, y, 475, 316, 330, 54)) advance();
+                else if (run.phase == Phase.LESSON && run.isBoss() && !revealed()) {
+                    var options = tiles();
+                    for (int i = 0; i < options.size(); i++) {
+                        if (hit(x, y, 332 + i * 88, 80, 76, 58)) { tileSelection = i; addTile(i); break; }
                     }
-                } else if (run.phase == Phase.LESSON && hit(x, y, 540, 66, 200, 46)) {
-                    if (exercise == Exercise.INTRO) startExercise(Exercise.READING);
-                    else if (exercise == Exercise.KANA_INTRO) startExercise(Exercise.KATAKANA);
-                } else if ((run.phase == Phase.WON || run.phase == Phase.LOST) && hit(x, y, 475, 316, 330, 54)) advance();
+                }
             }
         }
     }
@@ -660,7 +571,10 @@ public final class GameScreen extends ScreenAdapter {
                     if (key == Input.Keys.ENTER || key == Input.Keys.SPACE) nextPanel();
                     else if (key == Input.Keys.S) finishCinematic();
                 }
-                case PAUSE -> { if (key == Input.Keys.ENTER) back(); }
+                case PAUSE -> {
+                    if (key == Input.Keys.ENTER) back();
+                    else if (key == Input.Keys.S && save()) menu();
+                }
                 case JOURNAL -> {
                     int size = journalEntries().size();
                     if (key == Input.Keys.TAB || key == Input.Keys.ENTER) back();
@@ -680,21 +594,22 @@ public final class GameScreen extends ScreenAdapter {
                 journal(mode);
             } else if (run.phase == Phase.WON || run.phase == Phase.LOST) {
                 if (key == Input.Keys.ENTER) advance();
-            } else if (!answers.isEmpty() && run.phase == Phase.LESSON) {
+            } else if (run.phase == Phase.LESSON && run.isBoss() && !revealed()) {
                 if (key == Input.Keys.LEFT || key == Input.Keys.RIGHT)
-                    choice = Math.floorMod(choice + (key == Input.Keys.LEFT ? -1 : 1), answers.size());
-                else if (key == Input.Keys.ENTER) choose();
-                else if (key == Input.Keys.H) { assisted = true; feedback = "Hint: " + answer; }
-            } else if (run.phase == Phase.LESSON && key == Input.Keys.ENTER && exercise == Exercise.INTRO) {
-                startExercise(Exercise.READING);
-            } else if (run.phase == Phase.LESSON && key == Input.Keys.ENTER && exercise == Exercise.KANA_INTRO) {
-                startExercise(Exercise.KATAKANA);
+                    tileSelection = Math.floorMod(tileSelection + (key == Input.Keys.LEFT ? -1 : 1), tiles().size());
+                else if (key == Input.Keys.SPACE) addTile(tileSelection);
+                else if (key == Input.Keys.BACKSPACE && !kanaInput.isEmpty())
+                    kanaInput = kanaInput.substring(0, kanaInput.length() - 1);
+                else if (key == Input.Keys.R) kanaInput = "";
+                else if (key == Input.Keys.ENTER) {
+                    if (kanaInput.equals(quiz().katakana())) acceptQuiz();
+                    else { feedback = "Check the reading and try again."; audio.play(Cue.RETRY); }
+                }
             } else if (canDraw()) drawingKey(key);
         }
 
         private void drawingKey(int key) {
             if (key == Input.Keys.ENTER) submit();
-            else if (key == Input.Keys.G && run.phase == Phase.DEFEND && !drawing.isActive()) defend(null);
             else if (key == Input.Keys.H) { hint = !hint; assisted |= hint; }
             else if (key == Input.Keys.R) {
                 drawing.clear();
@@ -724,32 +639,22 @@ public final class GameScreen extends ScreenAdapter {
             mouseX = p.x;
             mouseY = p.y;
             if (mode == Mode.SETTINGS && adjustSlider(p.x, p.y, true)) slider = true;
-            else if ((mode == Mode.GAME || mode == Mode.PRACTICE) && canDraw() && pointer == -1
-                && hit(p.x, p.y, CANVAS_X, 42, CANVAS_WIDTH, CANVAS_TOP - 42)) {
-                pointer = index;
-                drawing.begin(p.x - CANVAS_X, CANVAS_TOP - p.y);
-                feedback = "";
-                audio.play(Cue.STROKE);
-            } else if (pointer == -1) click(p.x, p.y);
+            else if (!beginInk(p.x, p.y, index) && pointer == -1) click(p.x, p.y);
             return true;
         }
 
         @Override public boolean touchDragged(int x, int y, int index) {
             var p = point(x, y);
             if (slider && mode == Mode.SETTINGS) changeVolume(setting, Math.clamp(Math.round((p.x - 496) / 3.2f), 0, 100));
-            if ((mode == Mode.GAME || mode == Mode.PRACTICE) && index == pointer)
-                drawing.add(Math.clamp(p.x - CANVAS_X, 0, CANVAS_WIDTH), Math.clamp(CANVAS_TOP - p.y, 0, CANVAS_TOP - 42));
+            moveInk(p.x, p.y, index);
             return true;
         }
 
         @Override public boolean touchUp(int x, int y, int index, int button) {
             if (button != Input.Buttons.LEFT) return false;
             slider = false;
-            if (index == pointer) {
-                touchDragged(x, y, index);
-                drawing.end();
-                pointer = -1;
-            }
+            var p = point(x, y);
+            endInk(p.x, p.y, index);
             return true;
         }
     }

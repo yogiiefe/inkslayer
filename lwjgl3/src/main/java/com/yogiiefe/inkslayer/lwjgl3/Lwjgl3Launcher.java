@@ -75,10 +75,10 @@ public class Lwjgl3Launcher {
 
         configuration.setWindowedMode(Math.max(960, Integer.getInteger("inkslayer.width", 1280)), Math.max(540, Integer.getInteger("inkslayer.height", 720)));
         configuration.setWindowSizeLimits(960, 540, -1, -1);
-        configuration.setPauseWhenLostFocus(true);
+        configuration.setPauseWhenLostFocus(!Boolean.getBoolean("inkslayer.smoke"));
         //// You can change these files; they are in lwjgl3/src/main/resources/ .
         //// They can also be loaded from the root of assets/ .
-        configuration.setWindowIcon("libgdx128.png", "libgdx64.png", "libgdx32.png", "libgdx16.png");
+        configuration.setWindowIcon("inkslayer-icon.png");
 
         //// This could improve compatibility with Windows machines with buggy OpenGL drivers, Macs
         //// with Apple Silicon that have to emulate compatibility with OpenGL anyway, and more.

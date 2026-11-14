@@ -24,19 +24,19 @@ import static com.yogiiefe.inkslayer.screens.GameScreen.*;
 
 /** Draws the original pixel-art arena and the campaign screens. */
 final class ScreenView implements Disposable {
-    private static final Color INK = Color.valueOf("10111f"), PAPER = Color.valueOf("f5e9ec");
-    private static final Color MUTED = Color.valueOf("b8acc7"), ACCENT = Color.valueOf("72e6d6");
-    private static final Color PINK = Color.valueOf("ef739e"), PANEL = Color.valueOf("1c192f"), LINE = Color.valueOf("594d6f");
-    private static final Color[] STAGE = colors("131126", "10211f", "101a30", "231229");
-    private static final Color[] ELEMENT = colors("64bde4", "e57962", "acabc7", "74b998", "ceac76");
-    private static final Color[] SHADOW = colors("345f93", "9c3c56", "625b82", "366952", "86604d");
+    private static final Color INK = Color.valueOf("121212"), PAPER = Color.valueOf("ececec");
+    private static final Color MUTED = Color.valueOf("b1b1b1"), ACCENT = Color.valueOf("cccccc");
+    private static final Color PINK = Color.valueOf("909090"), PANEL = Color.valueOf("1b1b1b"), LINE = Color.valueOf("525252");
+    private static final Color[] STAGE = colors("131313", "1d1d1d", "191919", "171717");
+    private static final Color[] ELEMENT = colors("adadad", "8e8e8e", "adadad", "a8a8a8", "afafaf");
+    private static final Color[] SHADOW = colors("5a5a5a", "525252", "5f5f5f", "5c5c5c", "676767");
     private static final DateTimeFormatter SAVE_DATE = DateTimeFormatter.ofPattern("dd MMM, HH:mm").withZone(ZoneId.systemDefault());
 
     private final GameScreen g;
     private final SpriteBatch batch = new SpriteBatch();
     private final Matrix4 transformed = new Matrix4(), identity = new Matrix4();
     private final Texture pixel;
-    private final BitmapFont small, body, large, symbol;
+    private final BitmapFont small, body, large, quizFont;
     private final TitleMenu titleMenu;
 
     ScreenView(GameScreen screen) {
@@ -47,17 +47,18 @@ final class ScreenView implements Disposable {
         pixel = new Texture(pixmap);
         pixmap.dispose();
         titleMenu = new TitleMenu(batch, pixel);
-        var generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/NotoSansJP.ttf"));
+        var generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/DotGothic16-Regular.ttf"));
         try {
             var chars = new StringBuilder(FreeTypeFontGenerator.DEFAULT_CHARS).append("←→×");
-            g.content.lessons.values().forEach(lesson -> chars.append(lesson.glyph()).append(lesson.reading()));
-            g.content.katakana.forEach(word -> chars.append(word.text()));
+            g.quizzes.forEach(quiz -> chars.append(quiz.japanese()).append(quiz.kanji())
+                .append(quiz.reading()).append(quiz.katakana()));
+            chars.append("カユソ");            g.content.katakana.forEach(word -> chars.append(word.text()));
             String characters = chars.toString().codePoints().distinct()
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append).toString();
-            small = font(generator, 15, characters);
-            body = font(generator, 22, characters);
-            large = font(generator, 38, characters);
-            symbol = font(generator, 66, String.join("", g.content.lessons.keySet()));
+            small = font(generator, 16, characters);
+            body = font(generator, 16, characters);
+            large = font(generator, 48, characters);
+            quizFont = font(generator, 32, characters);
         } finally {
             generator.dispose();
         }
@@ -70,9 +71,10 @@ final class ScreenView implements Disposable {
     private BitmapFont font(FreeTypeFontGenerator generator, int size, String chars) {
         var p = new FreeTypeFontGenerator.FreeTypeFontParameter();
         p.size = size;
+        p.mono = size >= 32;
         p.characters = chars;
-        p.minFilter = Texture.TextureFilter.Linear;
-        p.magFilter = Texture.TextureFilter.Linear;
+        p.minFilter = Texture.TextureFilter.Nearest;
+        p.magFilter = Texture.TextureFilter.Nearest;
         return generator.generateFont(p);
     }
 
@@ -97,7 +99,7 @@ final class ScreenView implements Disposable {
         boolean walk = run.phase == Phase.WALK;
         int index = CampaignContent.ELEMENTS.indexOf(run.enemy().element());
         box(0, 0, 1280, 720, STAGE[run.stage]);
-        box(0, 0, 1280, CANVAS_TOP, INK);
+        box(0, 0, 1280, CANVAS_TOP, Color.WHITE);
         box(0, CANVAS_TOP - 2, 1280, 2, LINE);
         if (walk) {
             float scroll = (float) Math.max(0, run.x - 215) * 2;
@@ -107,18 +109,18 @@ final class ScreenView implements Disposable {
             }
             actor((float) run.x * 2 - scroll, CANVAS_TOP, 2.6f, () -> player(run.facing));
             float enemyX = 2 * ((float) CampaignRun.ENCOUNTER_X + 145) - scroll;
-            actor(enemyX, CANVAS_TOP, 5.2f, () -> monster(index));
+            actor(enemyX, CANVAS_TOP, 4f, () -> monster(index));
             center(body, g.content.stages.get(run.stage).name(), 640, 650, PAPER);
             center(small, "Encounter " + (run.encounter + 1) + " / 10     A / D to walk     Tab for journal", 640, 615, MUTED);
             if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 50, PINK);
             return;
         }
 
-        actor(125, CANVAS_TOP, 2.6f, () -> player(1));
-        if (run.phase != Phase.WON) actor(862, CANVAS_TOP, 5.2f, () -> monster(index));
-        center(body, "Player", 155, 465, PAPER);
-        center(body, run.enemy().name() + (run.isBoss() ? "  /  Round " + (run.round + 1) : ""), 1020, 671, PAPER);
-        center(small, CampaignContent.GLYPHS.get(run.enemy().element()) + "  " + elementName(run.enemy().element()), 1020, 636, ELEMENT[index]);
+        actor(216, CANVAS_TOP, 2.6f, () -> player(1));
+        if (run.phase != Phase.WON) actor(826, CANVAS_TOP, 4f, () -> monster(index));
+        center(body, "PLAYER", 250, 454, PAPER);
+        button("Glossarium", 24, 646, 172, 46, false);
+        button("Settings", 208, 646, 132, 46, false);
         if (g.effectTime > 0) spellEffect();
         if (run.phase == Phase.WON || run.phase == Phase.LOST) outcome();
         else drawArea();
@@ -133,8 +135,8 @@ final class ScreenView implements Disposable {
     private void player(int facing) {
         box(8, 0, 10, 16, LINE);
         box(23, 0, 10, 16, LINE);
-        box(4, 13, 31, 27, Color.valueOf("718d96"));
-        box(4, 13, 8, 27, Color.valueOf("3e596a"));
+        box(4, 13, 31, 27, Color.valueOf("888888"));
+        box(4, 13, 8, 27, Color.valueOf("545454"));
         box(3, 13, 35, 5, ELEMENT[4]);
         box(10, 39, 22, 21, PAPER);
         box(4, 56, 34, 6, LINE);
@@ -194,76 +196,88 @@ final class ScreenView implements Disposable {
     }
 
     private void spellEffect() {
-        int index = CampaignContent.ELEMENTS.indexOf(g.effectElement);
         float travel = (float) (1 - g.effectTime / 0.3);
-        float x = g.effectHitsPlayer ? 930 - travel * 770 : 216 + travel * 720;
-        float y = 357 + 42 * (float) Math.sin(travel * Math.PI);
-        for (int i = 0; i < 5; i++) {
-            float tail = (g.effectHitsPlayer ? 1 : -1) * i * 13;
-            box(x + tail, y + (i % 3 - 1) * 10, 20 - i * 3, 9 - i, i == 0 ? PAPER : ELEMENT[index]);
+        for (int i = 0; i < 6; i++) {
+            float x = 288 + travel * 640 - i * 15;
+            float y = 350 + 36 * (float) Math.sin(travel * Math.PI) + (i % 3 - 1) * 10;
+            box(x, y, 22 - i * 2, 10, PAPER);
         }
     }
 
     private void drawArea() {
-        box(CANVAS_X, 0, 2, CANVAS_TOP, LINE);
-        box(CANVAS_X + CANVAS_WIDTH - 2, 0, 2, CANVAS_TOP, LINE);
-        if (g.run.phase == Phase.LESSON && !g.canDraw()) {
-            showQuestion();
-            return;
+        boolean practice = g.mode == Mode.PRACTICE;
+        if (!practice) {
+            var quiz = g.quiz();
+            box(590, 573, 614, 119, LINE);
+            box(594, 577, 606, 111, PANEL);
+            box(973, 561, 32, 12, LINE);
+            box(981, 550, 24, 11, LINE);
+            box(989, 543, 16, 7, LINE);
+            text(small, g.run.enemy().name() + (g.run.isBoss() ? "  " + g.bossQuestionNumber() + "/" + g.bossQuestionCount() : ""),
+                616, 678, MUTED);
+            write(body, quiz.english(), 616, 650, 562, Align.left, PAPER);
+            String sentence = g.revealed() ? quiz.completed()
+                : g.run.isBoss() ? quiz.japanese() + "  (" + quiz.kanji() + ")" : quiz.japanese();
+            write(quizFont, sentence, 616, 623, 562, Align.left, PAPER);
         }
-        String guide = g.guideGlyph();
-        if (guide != null) template(guide, GUIDE_X, GUIDE_Y, GUIDE_SIZE);
-        for (var stroke : g.drawing.snapshot()) stroke(stroke, CANVAS_X, CANVAS_TOP, 1, PAPER, 4);
-        stroke(g.drawing.active(), CANVAS_X, CANVAS_TOP, 1, PAPER, 4);
-        String instruction = g.mode == Mode.PRACTICE ? "Practice " + g.practiceGlyph + "    Esc to return" : switch (g.run.phase) {
-            case LESSON -> g.exercise == Exercise.TRACE
-                ? "Trace " + g.glyph + "  " + g.lesson().reading()
-                : "Draw the kanji for " + g.lesson().meaning() + "  (" + g.lesson().reading() + ")";
-            case ATTACK -> "Your turn  /  Draw a spell";
-            case DEFEND -> {
-                String element = g.run.incoming();
-                yield "Incoming " + CampaignContent.GLYPHS.get(element) + "  " + elementName(element) + "  /  Draw counter or G Guard";
+
+        if (!practice && g.run.isBoss()) {
+            center(large, g.kanaInput.isEmpty() ? "[     ]" : g.kanaInput, 640, 223, INK);
+            var tiles = g.tiles();
+            for (int i = 0; i < tiles.size(); i++)
+                button(tiles.get(i), 332 + i * 88, 80, 76, 58, i == g.tileSelection);
+            center(small, g.feedback.isEmpty() ? "Click tiles or use arrows + Space   /   Enter submit   /   R clear" : g.feedback, 640, 44, INK);
+        } else {
+            String guide = g.guideGlyph();
+            if (guide != null) template(guide, GUIDE_X, GUIDE_Y, GUIDE_SIZE);
+            for (var path : g.drawing.snapshot()) brush(path);
+            brush(g.drawing.active());
+            if (g.drawing.count() == 0 && !g.drawing.isActive() && guide == null) {
+                String prompt = g.revealed() ? "Correct!" : g.feedback.isEmpty()
+                    ? "DRAW KANJI   /   ENTER SUBMIT   /   H GUIDE   /   R CLEAR" : g.feedback;
+                center(small, prompt, 640, 37, INK);
+            } else if (!g.feedback.isEmpty()) {
+                box(830, 12, 438, 24, Color.WHITE);
+                write(small, g.feedback, 832, 32, 426, Align.right, INK);
             }
-            default -> "";
-        };
-        center(small, instruction, 620, 45, g.run.phase == Phase.DEFEND ? PINK : PAPER);
-        center(small, g.feedback.isEmpty() ? "Enter submit     H guide     R clear     Ctrl+Z undo" : g.feedback,
-            620, 22, MUTED);
+        }
     }
 
-    private void showQuestion() {
-        switch (g.exercise) {
-            case INTRO -> {
-                center(symbol, g.glyph, 620, 226, ACCENT);
-                center(body, g.lesson().reading() + "  /  " + g.lesson().meaning(), 620, 151, PAPER);
-                center(small, g.lesson().romaji() + "     " + g.lesson().strokeCount() + " strokes", 620, 120, MUTED);
-                button("Continue", 540, 66, 200, 46, true);
-            }
-            case KANA_INTRO -> {
-                center(large, g.kanaWord, 620, 220, ACCENT);
-                center(body, g.kana().romaji() + "  /  " + g.kana().meaning(), 620, 163, PAPER);
-                write(small, g.kana().note(), 363, 127, 514, Align.center, MUTED);
-                button("Continue", 540, 66, 200, 46, true);
-            }
-            default -> {
-                String prompt = switch (g.exercise) {
-                    case READING -> "Choose the hiragana reading for " + g.glyph;
-                    case MEANING -> "Choose the meaning of " + g.glyph;
-                    default -> "Choose the katakana for " + g.kana().meaning();
-                };
-                center(body, prompt, 620, 204, PAPER);
-                for (int i = 0; i < g.answers.size(); i++)
-                    button(g.answers.get(i), 346 + i * 194, 78, 178, 58, g.choice == i);
-                center(small, g.feedback.isEmpty() ? "Click or use arrows and Enter     H hint" : g.feedback, 620, 49, MUTED);
+    private void brush(List<InkPoint> path) {
+        if (path.isEmpty()) return;
+        var first = path.getFirst();
+        stamp(first.x(), first.y(), 18);
+        for (int index = 1; index < path.size(); index++) {
+            var a = path.get(index - 1);
+            var b = path.get(index);
+            double distance = a.distance(b);
+            int steps = Math.max(1, (int) Math.ceil(distance / 4));
+            int width = Math.clamp((int) (23 - distance * 0.36), 12, 23);
+            for (int step = 1; step <= steps; step++) {
+                double t = (double) step / steps;
+                stamp(a.x() + (b.x() - a.x()) * t, a.y() + (b.y() - a.y()) * t, width);
             }
         }
+    }
+
+    private void stamp(double x, double y, int width) {
+        int left = (int) Math.round((x - width / 2.0) / 3) * 3;
+        int bottom = (int) Math.round((CANVAS_TOP - y - width / 2.0) / 3) * 3;
+        int right = Math.min(CANVAS_WIDTH, left + width);
+        int top = Math.min(CANVAS_TOP, bottom + width);
+        left = Math.max(0, left);
+        bottom = Math.max(0, bottom);
+        if (right > left && top > bottom) box(left, bottom, right - left, top - bottom, INK);
     }
 
     private void outcome() {
         boolean won = g.run.phase == Phase.WON;
         panel(380, 278, 520, 238);
         center(large, won ? "Victory" : "Defeat", 640, 470, won ? ACCENT : PINK);
-        center(body, won ? g.run.enemy().name() + " defeated" : "Retry from this encounter's checkpoint", 640, 412, PAPER);
+        String result = won ? g.run.enemy().name() + " defeated" : "Retry from this encounter's checkpoint";
+        if (won && g.run.stage == 0 && g.run.encounter == 0)
+            result = "Under the mask is a face from Kotoba's list of victims.";
+        center(body, result, 640, 412, PAPER);
         button(won ? "Continue" : "Retry", 475, 316, 330, 54, true);
         if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 303, PINK);
     }
@@ -318,7 +332,7 @@ final class ScreenView implements Disposable {
         panel(350, 157, 580, 453);
         center(large, "Paused", 640, 567, PAPER);
         center(body, "HP " + g.run.hp + "/" + CampaignRun.MAX_HP + "     " + g.run.enemy().name() + "  " + g.run.monsterHp + " HP", 640, 510, PAPER);
-        center(small, "A/D walk     Tab journal     Enter submit     G guard     H guide", 640, 471, MUTED);
+        center(small, "A/D walk     Tab journal     Enter submit     H guide", 640, 471, MUTED);
         button("Resume", 460, 366, 360, 46, true);
         button("Journal", 460, 307, 360, 46, false);
         button("Settings", 460, 248, 360, 46, false);
@@ -329,17 +343,15 @@ final class ScreenView implements Disposable {
 
     private void journal() {
         panel(275, 90, 730, 555);
-        center(large, "Kanji Journal", 640, 596, PAPER);
+        center(large, "Glossarium", 640, 596, PAPER);
         var entries = g.journalEntries();
         if (!entries.isEmpty()) {
             var lesson = entries.get(g.journalPage);
-            center(body, lesson.glyph() + "  " + lesson.reading() + "  /  " + lesson.meaning(), 640, 523, PAPER);
-            template(lesson.glyph(), 552, 316, 176);
-            var learned = g.learning.get(lesson.id());
+            center(body, lesson.kanji() + "  " + lesson.reading() + "  /  " + lesson.english(), 640, 523, PAPER);
+            template(lesson.kanji(), 552, 316, 176);
+            var learned = g.learning.get(lesson.kanji());
             if (learned != null) center(small, learned.independent() + " independent  /  " + learned.assisted() + " assisted", 640, 233, MUTED);
             if (g.run.phase == Phase.WALK) button("Practice (Q)", 530, 270, 220, 42, true);
-            String cycle = "水 Water > 火 Fire > 金 Metal > 木 Wood > 土 Earth > 水 Water";
-            center(small, cycle, 640, 195, ACCENT);
             button("Previous", 312, 115, 180, 42, false);
             button("Next", 788, 115, 180, 42, false);
         }
@@ -347,16 +359,24 @@ final class ScreenView implements Disposable {
     }
 
     private void practice() {
-        var lesson = g.content.lessons.get(g.practiceGlyph);
+        var lesson = g.quizzes.stream().filter(quiz -> quiz.kanji().equals(g.practiceGlyph)).findFirst().orElseThrow();
         box(0, 0, 1280, 720, STAGE[g.run.stage]);
-        center(symbol, lesson.glyph(), 620, 590, ACCENT);
-        center(body, lesson.reading() + "  /  " + lesson.meaning(), 620, 486, PAPER);
-        box(0, CANVAS_TOP - 2, 1280, 2, LINE);
+        center(large, lesson.kanji(), 620, 590, ACCENT);
+        center(body, lesson.reading() + "  /  " + lesson.english(), 620, 486, PAPER);
+        box(0, 0, 1280, CANVAS_TOP, Color.WHITE);
         drawArea();
     }
 
     private void cinematic() {
         box(0, 0, 1280, 720, STAGE[g.ending ? 3 : 0]);
+        if (!g.ending) {
+            center(large, g.panels().get(g.panel), 640, 411, PAPER);
+            button("Next", 300, 50, 190, 44, false);
+            button("Skip", 790, 50, 190, 44, false);
+            if (g.slot < 0) center(small, "All slots are full. This run is unsaved.", 640, 34, PAPER);
+            else if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 34, PAPER);
+            return;
+        }
         box(0, 220, 1280, 2, LINE);
         float drift = (float) Math.min(90, g.panelTime * 10);
         for (int i = 0; i < 7; i++) {
@@ -445,8 +465,9 @@ final class ScreenView implements Disposable {
     }
 
     @Override public void dispose() {
-        symbol.dispose();
+
         large.dispose();
+        quizFont.dispose();
         body.dispose();
         small.dispose();
         pixel.dispose();

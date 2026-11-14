@@ -35,17 +35,17 @@ final class TitleMenu {
         }
     }
 
-    private static final Color SKY = Color.valueOf("100f24");
-    private static final Color VOID = Color.valueOf("09091a");
-    private static final Color FAR = Color.valueOf("211a38");
-    private static final Color STONE = Color.valueOf("302144");
-    private static final Color EDGE = Color.valueOf("583354");
-    private static final Color WATER = Color.valueOf("17152e");
-    private static final Color PINK = Color.valueOf("ed639e");
-    private static final Color PLUM = Color.valueOf("933b77");
-    private static final Color CYAN = Color.valueOf("78eadc");
-    private static final Color WHITE = Color.valueOf("f8e8ef");
-    private static final Color MUTED = Color.valueOf("b6a9c8");
+    private static final Color SKY = Color.valueOf("111111");
+    private static final Color VOID = Color.valueOf("0a0a0a");
+    private static final Color FAR = Color.valueOf("1e1e1e");
+    private static final Color STONE = Color.valueOf("272727");
+    private static final Color EDGE = Color.valueOf("3d3d3d");
+    private static final Color WATER = Color.valueOf("171717");
+    private static final Color PINK = Color.valueOf("858585");
+    private static final Color PLUM = Color.valueOf("525252");
+    private static final Color CYAN = Color.valueOf("d1d1d1");
+    private static final Color WHITE = Color.valueOf("ececec");
+    private static final Color MUTED = Color.valueOf("aeaeae");
     private static final String[] LOGO = {
         "11111 10001 10001 01111 10000 01110 10001 11111 11110 11",
         "00100 11001 10010 10000 10000 10001 10001 10000 10001 11",

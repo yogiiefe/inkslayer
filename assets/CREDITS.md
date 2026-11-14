@@ -5,6 +5,8 @@ Original prototype code-drawn scenery and characters: INKSLAYER project.
 - [Campaign stroke templates and KanjiVG provenance](data/kanji/TEMPLATES.md)
 - [Campaign Japanese reading and vocabulary references](data/learning/SOURCES.md)
 - [Original music and sound effects](audio/CREDITS.md)
+- [Fill the Blank stroke template provenance](data/kanji/FILL_TEMPLATES.md)
+- [DotGothic16 license](fonts/DotGothic16-OFL.txt). Pixel font by the DotGothic16 Project Authors, SIL OFL 1.1. Original TTF from [Google Fonts revision fa826bb](https://github.com/google/fonts/tree/fa826bb2a3e26df8c1bee99351fc0d039aeed7d2/ofl/dotgothic16). TTF SHA-256: `3ad9af88726d42b40f7f365f0dcac785af73cf20ea6f1d5b44e57cc21150b8f1`. License SHA-256: `b6630c61ea078cacd7fabe37d14ffe557a0b45b06683374a9aa9e24262993e33`.
 
 KanjiVG water stroke paths: Copyright (C) 2009/2010/2011 Ulrich Apel.
 https://kanjivg.tagaini.net/

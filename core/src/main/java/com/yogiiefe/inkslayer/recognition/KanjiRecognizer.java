@@ -14,7 +14,7 @@ public final class KanjiRecognizer {
     public record Match(String id, Result result) {}
     private record Score(String id, double mean, double worst, boolean ordered, boolean directed) {}
 
-    static final int MAX_STROKES = 12;
+    static final int MAX_STROKES = 13;
     private static final int N = 32;
     private static final double MINIMUM_SPAN = 12;
     private static final double AMBIGUITY_MARGIN = 0.025;

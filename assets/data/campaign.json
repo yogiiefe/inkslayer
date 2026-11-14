@@ -74,7 +74,7 @@
       ]
     },
     {
-      "name": "Examination",
+      "name": "Food",
       "encounters": [
         {"id":"s4-01","name":"Examiner I","element":"FIRE","attacks":["FIRE","WATER"],"health":44,"damage":8,"lessonId":"水"},
         {"id":"s4-02","name":"Examiner II","element":"METAL","attacks":["METAL","EARTH"],"health":46,"damage":8,"lessonId":"金"},
@@ -103,8 +103,8 @@
     "Their ledgers lead to Mr. Kotoba. You pocket the pen and set out for the first gate."
   ],
   "ending": [
-    "Mr. Kotoba turns the last page. You have read, recalled and written your way through all three rounds.",
-    "His final seal cracks. The inspector sets his pen down and opens the examination hall.",
+    "Mr. Kotoba turns the last page. His own exam has been turned against him.",
+    "His final seal cracks. Mr. Kotoba falls, and the examination hall opens.",
     "The gates unlock. Outside, the people gather to read the orders that kept them apart.",
     "They take the inspection notices down and put up a sign for a free class.",
     "A student asks how to write water. You draw 水, stroke by stroke, and pass them the pen.",

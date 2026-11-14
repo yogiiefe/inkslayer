@@ -39,6 +39,12 @@ public final class CampaignRun {
     }
 
     public boolean isBoss() { return enemy().id().equals(CampaignContent.BOSS_ID); }
+
+    public void completeQuizEncounter() {
+        if (phase != Phase.LESSON) return;
+        monsterHp = 0;
+        phase = Phase.WON;
+    }
     public boolean isFinalEncounter() { return isBoss() && phase == Phase.WON; }
 
     public void tick(int direction) {

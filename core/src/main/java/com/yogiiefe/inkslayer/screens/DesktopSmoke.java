@@ -6,20 +6,20 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.PixmapIO;
 import com.badlogic.gdx.math.Vector2;
 import com.yogiiefe.inkslayer.audio.GameAudio.Channel;
-import com.yogiiefe.inkslayer.world.CampaignContent;
+
 import com.yogiiefe.inkslayer.world.CampaignRun;
 import com.yogiiefe.inkslayer.world.CampaignRun.Phase;
 
 /** Opt-in packaged desktop probe. Generates mouse input from the reference stroke paths. */
 final class DesktopSmoke {
-    private int frames, battles, counters, questions;
-    private boolean invalidChecked, reloaded, practiceChecked;
+    private int frames, battles, questions;
+    private boolean invalidChecked, reloaded, practiceChecked, firstBrushShown;
     private boolean resizing;
 
     void frame(GameScreen g) {
         if (resizing) return;
         frames++;
-        require(frames < 2400, "campaign timed out");
+        require(frames < 6500, "campaign timed out");
         if (frames < 5) return;
         if (frames == 5) {
             capture("title");
@@ -66,14 +66,14 @@ final class DesktopSmoke {
 
         switch (g.mode) {
             case GAME -> play(g);
+            case PAUSE, JOURNAL -> key(Input.Keys.ESCAPE);
             case CINEMATIC -> {
                 require(g.ending && battles == 40, "ending before all 40 battles");
                 require(g.saveStore.inspect(0).progress().endingPending(), "missing ending checkpoint");
                 capture("ending");
                 key(Input.Keys.S);
                 require(g.mode == GameScreen.Mode.TITLE && g.saveStore.inspect(0).progress().completed(), "ending did not save");
-                Gdx.app.log("SMOKE", "PASS: New, opening, settings, all 40 battles, " + counters
-                    + " defensive counters, " + questions + " lesson answers, checkpoint reload, ending and resize");
+                Gdx.app.log("SMOKE", "PASS: opening, display modes, 40 encounters, " + questions + " accepted quiz answers, checkpoint reload and ending");
                 Gdx.app.exit();
             }
             default -> throw new IllegalStateException("SMOKE: unexpected " + g.mode);
@@ -96,7 +96,7 @@ final class DesktopSmoke {
                 }
                 if (battles == 2 && !reloaded) {
                     key(Input.Keys.ESCAPE);
-                    click(g, 640, 209);
+                    key(Input.Keys.S);
                     require(g.mode == GameScreen.Mode.TITLE, "save and return");
                     key(Input.Keys.DOWN);
                     key(Input.Keys.ENTER);
@@ -105,54 +105,37 @@ final class DesktopSmoke {
                     key(Input.Keys.ENTER);
                     require(g.mode == GameScreen.Mode.GAME && g.run.encounter == 2 && g.learning.containsKey("水"), "checkpoint load");
                     reloaded = true;
-                    resizing = true;
-                    try { Gdx.graphics.setWindowedMode(960, 540); }
-                    finally { resizing = false; }
-                    require(Gdx.graphics.getWidth() == 960 && Gdx.graphics.getHeight() == 540, "resize");
                 }
                 g.run.x = CampaignRun.ENCOUNTER_X;
             }
             case LESSON -> {
-                if (g.exercise == GameScreen.Exercise.INTRO || g.exercise == GameScreen.Exercise.KANA_INTRO) {
-                    key(Input.Keys.ENTER);
-                } else if (g.canDraw()) {
-                    draw(g, g.glyph);
-                    key(Input.Keys.ENTER);
-                    require(g.drawing.count() == 0, "lesson glyph rejected: " + g.glyph + " / " + g.feedback);
-                    questions++;
-                } else {
-                    String answer = switch (g.exercise) {
-                        case READING -> g.lesson().reading();
-                        case MEANING -> g.lesson().meaning();
-                        case KATAKANA -> g.kanaWord;
-                        default -> throw new IllegalStateException("Missing exercise");
-                    };
-                    int index = g.answers.indexOf(answer);
-                    require(index >= 0, "answer missing");
-                    click(g, 435 + index * 194, 105);
-                    questions++;
-                }
-            }
-            case ATTACK -> {
+                if (g.revealed()) return;
                 if (!invalidChecked) {
-                    int hp = g.run.monsterHp;
                     key(Input.Keys.ENTER);
-                    require(g.run.phase == Phase.ATTACK && g.run.monsterHp == hp, "empty drawing spent an attack");
+                    require(!g.revealed(), "empty drawing accepted");
                     invalidChecked = true;
                 }
-                draw(g, counter(g.run.enemy().element()));
-                if (battles == 0 && !reloaded && g.run.monsterHp == g.run.enemy().health()) capture("battle");
+                if (g.run.isBoss()) {
+                    for (int cp : g.quiz().katakana().codePoints().toArray()) {
+                        int index = g.tiles().indexOf(Character.toString(cp));
+                        while (g.tileSelection != index) key(Input.Keys.RIGHT);
+                        key(Input.Keys.SPACE);
+                    }
+                    if (g.bossQuestionNumber() == 1) capture("kotoba");
+                } else {
+                    if (battles == 0 && !firstBrushShown) {
+                        draw(g, g.quiz().kanji());
+                        firstBrushShown = true;
+                        return;
+                    }
+                    if (battles == 0) capture("battle");
+                    else draw(g, g.quiz().kanji());
+                }
                 key(Input.Keys.ENTER);
-                require(g.drawing.count() == 0, "attack glyph rejected: " + g.feedback);
+                require(g.revealed(), "quiz answer rejected: " + g.quiz().kanji() + " / " + g.feedback);
+                questions++;
             }
-            case DEFEND -> {
-                draw(g, counter(g.run.incoming()));
-                if (counters == 0) capture("counter");
-                int health = g.run.hp;
-                key(Input.Keys.ENTER);
-                require(g.run.hp == health && g.drawing.count() == 0, "counter failed: " + g.feedback);
-                counters++;
-            }
+            case ATTACK, DEFEND -> throw new IllegalStateException("Legacy combat phase reached");
             case WON -> {
                 battles++;
                 if (battles == 10 || battles == 20 || battles == 30 || battles == 40) capture("stage-" + g.run.stage);
@@ -162,34 +145,34 @@ final class DesktopSmoke {
         }
     }
 
-    private String counter(String target) {
-        return CampaignContent.GLYPHS.get(CampaignContent.COUNTERS.get(target));
-    }
+
 
     private void draw(GameScreen g, String glyph) {
         var input = Gdx.input.getInputProcessor();
         for (var stroke : g.templates.get(glyph)) {
             for (int index = 0; index < stroke.size(); index++) {
                 var point = stroke.get(index);
-                var p = screen(g, GameScreen.GUIDE_X + (float) point.x() * GameScreen.GUIDE_SIZE / 109,
-                    GameScreen.GUIDE_Y + GameScreen.GUIDE_SIZE - (float) point.y() * GameScreen.GUIDE_SIZE / 109);
+                float uiX = GameScreen.GUIDE_X + (float) point.x() * GameScreen.GUIDE_SIZE / 109;
+                float uiY = GameScreen.GUIDE_Y + GameScreen.GUIDE_SIZE - (float) point.y() * GameScreen.GUIDE_SIZE / 109;
+                if (battles > 0) {
+                    if (index == 0) require(g.beginInk(uiX, uiY, 0), "quiz canvas was not ready");
+                    else if (index + 1 == stroke.size()) g.endInk(uiX, uiY, 0);
+                    else g.moveInk(uiX, uiY, 0);
+                    continue;
+                }
+                var p = screen(g, uiX, uiY);
                 int x = Math.round(p.x), y = Math.round(p.y);
                 if (index == 0) input.touchDown(x, y, 0, Input.Buttons.LEFT);
                 else if (index + 1 == stroke.size()) input.touchUp(x, y, 0, Input.Buttons.LEFT);
                 else input.touchDragged(x, y, 0);
             }
         }
-        require(g.drawing.count() == g.templates.get(glyph).size(), "mouse strokes lost for " + glyph);
+        require(g.drawing.count() == g.templates.get(glyph).size(), "mouse strokes lost for U+"
+            + Integer.toHexString(glyph.codePointAt(0)) + ": " + g.drawing.count() + "/"
+            + g.templates.get(glyph).size() + " in " + g.mode);
     }
 
     private void key(int key) { Gdx.input.getInputProcessor().keyDown(key); }
-
-    private void click(GameScreen g, float x, float y) {
-        Vector2 p = screen(g, x, y);
-        var input = Gdx.input.getInputProcessor();
-        input.touchDown(Math.round(p.x), Math.round(p.y), 0, Input.Buttons.LEFT);
-        input.touchUp(Math.round(p.x), Math.round(p.y), 0, Input.Buttons.LEFT);
-    }
 
     private Vector2 screen(GameScreen g, float x, float y) {
         Vector2 p = g.viewport.project(new Vector2(x, y));

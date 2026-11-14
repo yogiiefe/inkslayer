@@ -4,6 +4,7 @@
 
 - Dark comedy and fantasy frame a Japanese-learning action-adventure.
 - Handwritten Kanji powers elemental spells.
+- The people killed by Mr. Kotoba become his monster subordinates.
 - Mr. Kotoba is the main antagonist.
 - From the master brief: the dystopian regime requires Japanese speech and threatens non-speakers with death; Mr. Kotoba conducts inspections. The protagonist was accidentally omitted and sets out to defeat his subordinates and eventually him.
 
