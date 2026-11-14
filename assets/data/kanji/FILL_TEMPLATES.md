@@ -2,6 +2,8 @@
 
 Derived from KanjiVG revision d95a97627fd9fe5b2c8d06ca81e38149609c0c1e, CC BY-SA 3.0. See TEMPLATES.md and KanjiVG-LICENSE.txt for attribution, source URL and sampling method.
 
+To regenerate the 39 templates and source hashes from the pinned revision, run `java tools/ImportFillTemplates.java` from the project root with JDK 21. The tool writes to `build/fill-kanji/` for review before updating the assets.
+
 SHA-256 of fill-templates.json 41826DC24AA08CE658F1BC634C6173128D51BA021943302218CFD7EA4AC04AA0
 
 Source SVG hashes and stroke counts:

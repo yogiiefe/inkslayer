@@ -1,12 +1,16 @@
 # Testing and build evidence
 
+## Fill the Blank build after asset cleanup
+
+On 15 November 2026, a clean JDK 21 build passed all 27 JUnit tests and packaged the desktop JAR. The JAR contains the INKSLAYER window icon, DotGothic16, quiz data, and menu music. The desktop probe passed the prologue, tutorial, display modes, all 40 encounters, 43 quiz answers, checkpoint reload, and the ending using an isolated save directory.
+
 ## Campaign build
 
 The managed Windows build helper compiled the campaign with Java 21, ran 26 JUnit tests with zero failures, and packaged `lwjgl3/build/libs/INKSLAYER!-1.0.0.jar`. The suites cover all 25 elemental damage pairs, the distinction between a monster's main element and its incoming attack, the three boss rounds, template recognition, and save round-trip and backup recovery. The older results below describe earlier prototypes.
 
 On 14 November 2026 the packaged JAR ran from the parent directory with an isolated saves directory. The opt-in probe opened Settings, adjusted Master volume, started a new slot, opened the prologue, practiced Kanji, and sent template-based mouse strokes through the production input processor. It cleared 40 battles, submitted 81 defensive counters and 91 lesson answers, reloaded a checkpoint, resized to 960×540, and saved the completed ending. The probe moves the player to each encounter boundary to keep the run short. Walking is exercised in domain tests.
 
-Framebuffers and the isolated completed save are under `build/campaign-smoke-171356/`. The final probe exited with code 0.
+The final probe exited with code 0. It wrote framebuffers and an isolated completed save under `build/campaign-smoke-171356/`.
 
 ```text
 [SMOKE] PASS: New, opening, settings, all 40 battles, 81 defensive counters, 91 lesson answers, checkpoint reload, ending and resize
@@ -46,7 +50,7 @@ The packaged JAR was launched from `C:\Users\Administrator\Documents`, outside t
 & 'C:\Program Files\Java\jdk-21.0.12.1\bin\java.exe' '-Dinkslayer.smoke=true' '-Dinkslayer.screenshots=C:/Users/Administrator/Documents/inkslayer/build/screenshots' -jar 'C:\Users\Administrator\Documents\inkslayer\lwjgl3\build\libs\INKSLAYER!-1.0.0.jar'
 ```
 
-Observed output on the final packaged build: `[SMOKE] PASS: GL rendering, mouse strokes, recognition, cast, enemy defeat, death, reset, settings, resize`. Exit code 0. Title/gameplay/canvas and 960×540 settings screenshots were visually inspected; no clipping was observed in those inspected screens. Images are under `build/screenshots/`. This is scripted desktop integration, not a manual human playtest or a representative learning evaluation. Process-window enumeration on this managed desktop did not expose a handle; framebuffer capture was used directly inside the GL application instead.
+Observed output on the final packaged prototype build: `[SMOKE] PASS: GL rendering, mouse strokes, recognition, cast, enemy defeat, death, reset, settings, resize`. Exit code 0. Title/gameplay/canvas and 960×540 settings screenshots were visually inspected and showed no clipping. The probe writes screenshots to the ignored `build/screenshots/` directory by default. This is scripted desktop integration; manual playtesting and learning evaluation are separate. Process-window enumeration on this managed desktop did not expose a handle, so the probe captured the framebuffer directly inside the GL application.
 
 Final packaged artifact: `lwjgl3/build/libs/INKSLAYER!-1.0.0.jar`, 27,369,638 bytes. Java runtime is not bundled. `PLAY.bat` launches that artifact using a JDK 21 installation when found. Original Java/libGDX version and wrapper were preserved. The 17 skill folders and all 20 locked skill files also passed the existing metadata/link/hash validator after documentation updates.
 

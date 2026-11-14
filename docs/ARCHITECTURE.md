@@ -15,8 +15,7 @@
 - `core`: libGDX 1.14.2; FreeType, TypingLabel, VisUI, ShapeDrawer and RegExodus are already declared. Their presence does not require using them for every feature.
 - `lwjgl3`: desktop launcher, LWJGL 3.4.3 constraints, runnable JAR and Construo packaging configuration; optional native-image path disabled by default.
 - Gradle wrapper distribution configured as 9.8.0; daemon JVM criteria request 21. Distribution/toolchain resolution has not been validated.
-- Originally `Main` was an `ApplicationAdapter` rendering a sample texture. The current implementation below replaces that sample; the original image asset is retained.
-- No `.git` repository was found at this project root during inspection. Do not claim a clean Git diff or commit history.
+- Originally `Main` was an `ApplicationAdapter` rendering a sample texture. The current implementation below replaces that sample.
 
 ## Current implementation
 

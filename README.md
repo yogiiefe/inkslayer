@@ -4,12 +4,12 @@ A Java/libGDX desktop side-scrolling RPG with turn-based combat and short Japane
 
 ## Play on Windows
 
-Double-click **PLAY.bat** at the project root. It launches the packaged `lwjgl3/build/libs/INKSLAYER!-1.0.0.jar` using an installed JDK 21 when found. Java 21 or newer is required; a bundled runtime/installer is not included.
+Install JDK 21, then build the game once from the project root with `.\gradlew.bat :lwjgl3:jar`. Double-click **PLAY.bat** to launch the resulting `lwjgl3/build/libs/INKSLAYER!-1.0.0.jar`.
 
-Alternatively, from any working directory:
+To launch the JAR directly from the project root:
 
 ```powershell
-& 'C:\Program Files\Java\jdk-21.0.12.1\bin\java.exe' -jar 'C:\Users\Administrator\Documents\inkslayer\lwjgl3\build\libs\INKSLAYER!-1.0.0.jar'
+java -jar 'lwjgl3/build/libs/INKSLAYER!-1.0.0.jar'
 ```
 
 Select **New** to watch or skip the text prologue. Walk right in **The Unchecked Door** and use the stroke guide to draw 水. Submit with Enter to open the water gate. The first checkpoint is at the entrance to Stage 1. The game uses the first empty save slot. If all slots are occupied, the new run plays without saving.

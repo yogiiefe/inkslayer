@@ -21,7 +21,7 @@ project(":lwjgl3") {
   }
 
   // Modified from https://lyze.dev/2021/04/29/libGDX-Internal-Assets-List/ ; thanks again, Lyze!
-  // This creates a resource-config.json file based on the contents of the assets folder (and the libGDX icons).
+  // This creates a resource-config.json file for the assets, window icon and libGDX fonts.
   // This file is used by Graal Native to embed those specific files.
   // This has to run before nativeCompile, so it runs at the start of an unrelated resource-handling command.
   generateResourcesConfigFile.doFirst {
@@ -42,9 +42,9 @@ project(":lwjgl3") {
       // The backslash-Q and backslash-E escape the start and end of a literal string, respectively.
       resFile.append("\\\\Q${it.name}\\\\E|")
     }
-    // We also match all of the window icon images this way and the font files that are part of libGDX.
+    // Also match the desktop window icon and the built-in libGDX font files.
     resFile.append(
-            """libgdx.+\\\\.png|lsans.+)"
+            """inkslayer-icon\\\\.png|lsans.+)"
     }
   ]},
   "bundles":[]
