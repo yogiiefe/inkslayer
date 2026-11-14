@@ -1,5 +1,11 @@
 # Asset manifest
 
+## Active character art
+
+`ActorArt.java` draws original 64×64 transparent monochrome pixel sprites at startup. Sprites use six gray values, nearest filtering, and a shared baseline. The traveler has a neutral pose and two stride poses, displayed at 3× in gameplay and mirrored on turns. Enemies render at 4×. Elements, Pets, Weather, and Food each have distinct sprite families and encounter variants. Mr. Kotoba has a crown and ledger. Weather spirits use a short stepped hover. These poses and effects are visual only.
+
+The table below documents the earlier prototype.
+
 Prototype art is drawn from code. No final artwork or music was generated. Existing `assets/libgdx.png` remains untouched but is no longer used.
 
 | Path / asset | Purpose | Dimensions / frames | Format | Status |

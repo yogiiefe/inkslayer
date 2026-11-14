@@ -12,7 +12,9 @@ Alternatively, from any working directory:
 & 'C:\Program Files\Java\jdk-21.0.12.1\bin\java.exe' -jar 'C:\Users\Administrator\Documents\inkslayer\lwjgl3\build\libs\INKSLAYER!-1.0.0.jar'
 ```
 
-Select **New** to watch or skip the text prologue. The game automatically uses the first empty save slot. If all slots are occupied, the new run plays without saving. Walk right to meet a monster. Read the full English clue in its speech bubble, draw the missing Kanji anywhere below the floor line, then submit. A correct drawing completes the sentence and casts a spell.
+Select **New** to watch or skip the text prologue. Walk right in **The Unchecked Door** and use the stroke guide to draw 水. Submit with Enter to open the water gate. The first checkpoint is at the entrance to Stage 1. The game uses the first empty save slot. If all slots are occupied, the new run plays without saving.
+
+In battle, read the English clue and draw the missing Kanji anywhere below the floor line. A correct answer completes the sentence and casts a spell. Press Enter to advance story dialogue or S to skip the scene.
 
 The campaign has 39 different Kanji quizzes across Elements, Pets, Weather, and Food. Mr. Kotoba tests the katakana readings of four Kanji introduced earlier. **Save** on the main menu loads a checkpoint. The game saves before the first encounter, after each win, and at the ending. **Save & Return to Menu** in pause resumes at the current encounter checkpoint.
 
@@ -30,7 +32,7 @@ In Settings, select **Display** to switch between Windowed, Borderless, and Full
 | Clear | R while drawing |
 | Drawing guide or answer hint | H |
 | Kanji journal | Tab during play |
-| Safe drawing practice | Tab while walking, then Practice (Q) in the journal |
+| Safe drawing practice | Tab while walking, then Practice (Q) on the Kanji tab |
 | Pause / close overlay | Escape |
 | Next cinematic panel / skip | Enter / S |
 | Continue or retry | Enter on the outcome screen |
@@ -62,5 +64,7 @@ Optional window properties: `-Dinkslayer.width=1280 -Dinkslayer.height=720 -Dink
 Rencana kampanye empat stage dan 40 encounter tersedia di [BUILD_PLAN.md](docs/BUILD_PLAN.md).
 
 The Fill the Blank build uses monochrome pixel placeholders and DotGothic16 pixel text for Latin and Japanese. See the [quiz list](docs/FILL_THE_BLANK_QUIZZES.md) and [battle layout](docs/FILL_THE_BLANK_LAYOUT.md). Pronunciation recordings, human Japanese-language review and beginner handwriting calibration are pending.
+
+The Glossarium has tabs for all 39 tested Kanji, their contextual hiragana readings, and Kotoba's four katakana answers plus eight campaign vocabulary words. Switch tabs with 1–3 and browse with Left / Right.
 
 See [GDD](docs/GDD.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), [recognition](docs/RECOGNITION.md), and [asset manifest](docs/ASSET_MANIFEST.md). Font and KanjiVG attribution/licenses are in [credits](assets/CREDITS.md), also included in the JAR.

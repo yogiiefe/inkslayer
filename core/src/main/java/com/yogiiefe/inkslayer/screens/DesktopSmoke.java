@@ -13,7 +13,7 @@ import com.yogiiefe.inkslayer.world.CampaignRun.Phase;
 /** Opt-in packaged desktop probe. Generates mouse input from the reference stroke paths. */
 final class DesktopSmoke {
     private int frames, battles, questions;
-    private boolean invalidChecked, reloaded, practiceChecked, firstBrushShown;
+    private boolean invalidChecked, reloaded, practiceChecked, firstBrushShown, glossaryShown, practiceShown, pauseShown;
     private boolean resizing;
 
     void frame(GameScreen g) {
@@ -60,20 +60,42 @@ final class DesktopSmoke {
         if (frames == 7) {
             capture("opening");
             key(Input.Keys.S);
-            require(g.mode == GameScreen.Mode.GAME && g.saveStore.inspect(0).loadable(), "opening checkpoint");
+            require(g.mode == GameScreen.Mode.GAME && g.tutorial && !g.saveStore.inspect(0).occupied(), "opening must enter tutorial");
             return;
         }
 
         switch (g.mode) {
             case GAME -> play(g);
-            case PAUSE, JOURNAL -> key(Input.Keys.ESCAPE);
+            case STORY -> {
+                if (g.story == StoryBeat.FIRST_MASK && g.storyLine == 0) {
+                    require(g.saveStore.inspect(0).progress().encounter() == 0, "checkpoint advanced before mask reveal");
+                    capture("mask-reveal");
+                    key(Input.Keys.ENTER);
+                    require(g.storyLine == 1, "mask dialogue did not advance");
+                } else key(Input.Keys.S);
+            }
+            case PAUSE -> {
+                if (!pauseShown) { capture("pause"); pauseShown = true; }
+                key(Input.Keys.ESCAPE);
+            }
+            case JOURNAL -> {
+                if (!glossaryShown && g.glossaryTab == GameScreen.GlossaryTab.KANJI) {
+                    capture("glossarium");
+                    glossaryShown = true;
+                }
+                key(Input.Keys.ESCAPE);
+            }
+            case PRACTICE -> {
+                if (!practiceShown) { capture("practice"); practiceShown = true; }
+                key(Input.Keys.ESCAPE);
+            }
             case CINEMATIC -> {
                 require(g.ending && battles == 40, "ending before all 40 battles");
                 require(g.saveStore.inspect(0).progress().endingPending(), "missing ending checkpoint");
                 capture("ending");
                 key(Input.Keys.S);
                 require(g.mode == GameScreen.Mode.TITLE && g.saveStore.inspect(0).progress().completed(), "ending did not save");
-                Gdx.app.log("SMOKE", "PASS: opening, display modes, 40 encounters, " + questions + " accepted quiz answers, checkpoint reload and ending");
+                Gdx.app.log("SMOKE", "PASS: opening, tutorial, story, display modes, 40 encounters, " + questions + " accepted quiz answers, checkpoint reload and ending");
                 Gdx.app.exit();
             }
             default -> throw new IllegalStateException("SMOKE: unexpected " + g.mode);
@@ -81,18 +103,56 @@ final class DesktopSmoke {
     }
 
     private void play(GameScreen g) {
+        if (g.tutorial) {
+            switch (g.run.phase) {
+                case WALK -> g.run.x = CampaignRun.ENCOUNTER_X;
+                case LESSON -> {
+                    if (g.revealed()) return;
+                    require(g.hint && g.run.hp == CampaignRun.MAX_HP, "tutorial guide and safety");
+                    capture("tutorial");
+                    key(Input.Keys.ENTER);
+                    require(!g.revealed() && g.run.hp == CampaignRun.MAX_HP, "failed tutorial attempt dealt damage");
+                    draw(g, "水");
+                    key(Input.Keys.ENTER);
+                    require(g.revealed(), "tutorial rejected Water");
+                }
+                case WON -> {
+                    key(Input.Keys.ENTER);
+                    require(!g.tutorial && g.mode == GameScreen.Mode.STORY && g.story == StoryBeat.ELEMENTS_START
+                        && g.saveStore.inspect(0).progress().encounter() == 0, "Stage 1 checkpoint");
+                }
+                default -> throw new IllegalStateException("Unexpected tutorial phase");
+            }
+            return;
+        }
         switch (g.run.phase) {
             case WALK -> {
+                if (battles == 0 && !pauseShown) {
+                    key(Input.Keys.ESCAPE);
+                    return;
+                }
+                if (battles == 0 && !glossaryShown) {
+                    key(Input.Keys.Q);
+                    return;
+                }
                 if (battles == 0 && !practiceChecked) {
                     key(Input.Keys.Q);
+                    require(g.glossarySize() == 39, "Kanji glossary coverage");
+                    key(Input.Keys.NUM_2);
+                    key(Input.Keys.LEFT);
+                    require(g.glossarySize() == 39 && g.journalPage == 38, "Hiragana glossary navigation");
+                    key(Input.Keys.NUM_3);
+                    key(Input.Keys.LEFT);
+                    require(g.glossarySize() == g.bossQuestionCount() + g.content.katakana.size()
+                        && g.journalPage == g.glossarySize() - 1, "Katakana glossary coverage");
+                    key(Input.Keys.NUM_1);
                     key(Input.Keys.Q);
                     require(g.mode == GameScreen.Mode.PRACTICE, "safe practice route");
                     draw(g, "水");
                     key(Input.Keys.ENTER);
                     require(g.learning.containsKey("水") && g.run.phase == Phase.WALK, "practice changed the campaign state");
-                    key(Input.Keys.ESCAPE);
-                    key(Input.Keys.ESCAPE);
                     practiceChecked = true;
+                    return;
                 }
                 if (battles == 2 && !reloaded) {
                     key(Input.Keys.ESCAPE);
@@ -154,7 +214,7 @@ final class DesktopSmoke {
                 var point = stroke.get(index);
                 float uiX = GameScreen.GUIDE_X + (float) point.x() * GameScreen.GUIDE_SIZE / 109;
                 float uiY = GameScreen.GUIDE_Y + GameScreen.GUIDE_SIZE - (float) point.y() * GameScreen.GUIDE_SIZE / 109;
-                if (battles > 0) {
+                if (battles > 0 || g.mode == GameScreen.Mode.PRACTICE) {
                     if (index == 0) require(g.beginInk(uiX, uiY, 0), "quiz canvas was not ready");
                     else if (index + 1 == stroke.size()) g.endInk(uiX, uiY, 0);
                     else g.moveInk(uiX, uiY, 0);

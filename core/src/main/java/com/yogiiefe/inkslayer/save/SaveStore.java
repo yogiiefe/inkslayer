@@ -140,6 +140,13 @@ public final class SaveStore {
         replace(primaryPath, bytes);
     }
 
+    public synchronized void delete(int slot) throws IOException {
+        Path path = primary(slot);
+        Files.deleteIfExists(path.resolveSibling(path.getFileName() + ".corrupt"));
+        Files.deleteIfExists(backup(path));
+        Files.deleteIfExists(path);
+    }
+
     private Path primary(int slot) {
         if (slot < 0 || slot >= SLOT_COUNT) throw new IllegalArgumentException("Invalid save slot.");
         return directory.resolve(String.format(Locale.ROOT, "slot-%02d.json", slot + 1));

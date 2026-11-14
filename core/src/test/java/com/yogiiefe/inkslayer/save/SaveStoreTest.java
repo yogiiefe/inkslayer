@@ -91,6 +91,21 @@ class SaveStoreTest {
         assertTrue(store.inspect(2).progress().completed());
     }
 
+    @Test
+    void deletingASlotDoesNotRestoreItsBackupOrTouchOtherSlots() throws IOException {
+        var store = new SaveStore(directory);
+        store.write(0, checkpoint(2));
+        store.write(0, checkpoint(3));
+        store.write(1, checkpoint(7));
+        Files.writeString(directory.resolve("slot-01.json.corrupt"), "{");
+        store.delete(0);
+        assertFalse(store.inspect(0).occupied());
+        assertFalse(Files.exists(directory.resolve("slot-01.json.corrupt")));
+        assertEquals(7, store.inspect(1).progress().encounter());
+        store.write(0, checkpoint(0));
+        assertEquals(0, store.inspect(0).progress().encounter());
+    }
+
     private static Progress checkpoint(int encounter) {
         return new Progress(0, encounter, 0, false, false, 0, 0, Map.of());
     }

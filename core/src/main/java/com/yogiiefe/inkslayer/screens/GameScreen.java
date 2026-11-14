@@ -31,7 +31,8 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 public final class GameScreen extends ScreenAdapter {
-    enum Mode { TITLE, SLOTS, SETTINGS, CINEMATIC, GAME, PAUSE, JOURNAL, PRACTICE }
+    enum Mode { TITLE, SLOTS, SETTINGS, CINEMATIC, GAME, STORY, PAUSE, JOURNAL, PRACTICE }
+    enum GlossaryTab { KANJI, HIRAGANA, KATAKANA }
     static final int CANVAS_X = 0, CANVAS_WIDTH = 1280, CANVAS_TOP = 260;
     static final int GUIDE_SIZE = 176, GUIDE_X = 552, GUIDE_Y = 54;
     private static final Track[] STAGE_TRACKS = {Track.STAGE1, Track.STAGE2, Track.STAGE3, Track.STAGE4};
@@ -56,9 +57,15 @@ public final class GameScreen extends ScreenAdapter {
     TitleMenu.Option titleSelection = TitleMenu.Option.NEW, titleHover;
     List<SaveStore.Slot> slots = List.of();
     int slot = -1, slotSelection;
+    boolean confirmDelete;
     boolean ending, endingPending, completed, hint, assisted, strict;
     int panel, choice, setting, journalPage;
+    GlossaryTab glossaryTab = GlossaryTab.KANJI;
     double effectTime;
+    boolean tutorial;
+    StoryBeat story;
+    int storyLine;
+    private Runnable afterStory;
     double elapsed, playTime, panelTime;
     float mouseX = -1, mouseY = -1;
     String feedback = "", saveMessage = "", settingsMessage = "";
@@ -129,7 +136,11 @@ public final class GameScreen extends ScreenAdapter {
             run.tick(move);
             accumulator -= CampaignRun.STEP;
         }
-        if (run.phase == Phase.LESSON) beginLesson();
+        if (run.phase == Phase.LESSON) {
+            beginLesson();
+            if (tutorial) hint = assisted = true;
+            else if (run.isBoss()) showStory(StoryBeat.KOTOBA, () -> mode = Mode.GAME);
+        }
     }
 
     private boolean held(int first, int second) {
@@ -151,6 +162,7 @@ public final class GameScreen extends ScreenAdapter {
             }
         }
         learning.clear();
+        tutorial = false;
         playTime = 0;
         endingPending = completed = false;
         run.restore(0, 0);
@@ -158,16 +170,40 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private void openSlots() {
-        slots = java.util.stream.IntStream.range(0, SaveStore.SLOT_COUNT).mapToObj(saveStore::inspect).toList();
+        refreshSlots();
+        confirmDelete = false;
         slotSelection = 0;
         saveMessage = "";
         mode = Mode.SLOTS;
+    }
+
+    private void refreshSlots() {
+        slots = java.util.stream.IntStream.range(0, SaveStore.SLOT_COUNT).mapToObj(saveStore::inspect).toList();
+    }
+
+    private void requestDelete(int index) {
+        if (!slots.get(index).occupied()) return;
+        slotSelection = index;
+        confirmDelete = true;
+    }
+
+    private void deleteSelectedSlot() {
+        confirmDelete = false;
+        try {
+            saveStore.delete(slotSelection);
+            saveMessage = "Slot " + (slotSelection + 1) + " deleted.";
+        } catch (IOException | SecurityException ex) {
+            Gdx.app.error("Save", "Could not delete slot", ex);
+            saveMessage = "Could not delete slot " + (slotSelection + 1) + ".";
+        }
+        refreshSlots();
     }
 
     private void selectSlot(int selected) {
         slotSelection = selected;
         var entry = slots.get(selected);
         if (entry.loadable()) {
+            tutorial = false;
             slot = selected;
             var data = entry.progress();
             learning.clear();
@@ -230,8 +266,26 @@ public final class GameScreen extends ScreenAdapter {
             completed = true;
             if (save()) menu();
         } else {
-            if (save()) enterStage();
+            tutorial = true;
+            enterStage();
         }
+    }
+
+    private void showStory(StoryBeat beat, Runnable continuation) {
+        story = beat;
+        storyLine = 0;
+        afterStory = continuation;
+        mode = Mode.STORY;
+    }
+
+    private void continueStory(boolean skip) {
+        if (!skip && storyLine + 1 < story.lines.size()) {
+            storyLine++;
+            return;
+        }
+        var continuation = afterStory;
+        afterStory = null;
+        continuation.run();
     }
 
     private void enterStage() {
@@ -264,6 +318,10 @@ public final class GameScreen extends ScreenAdapter {
             .mapToObj(Character::toString).toList();
     }
 
+    static int tileX(int index, int count) {
+        return (1280 - (count * 88 - 12)) / 2 + index * 88;
+    }
+
     private void addTile(int index) {
         if (revealed() || kanaInput.length() >= quiz().katakana().length()) return;
         kanaInput += tiles().get(index);
@@ -279,7 +337,10 @@ public final class GameScreen extends ScreenAdapter {
 
     private void nextQuiz() {
         correctTime = -1;
-        if (run.isBoss() && examIndex + 1 < bossQuizzes.size()) {
+        if (tutorial) {
+            run.completeQuizEncounter();
+            audio.play(Cue.VICTORY);
+        } else if (run.isBoss() && examIndex + 1 < bossQuizzes.size()) {
             examIndex++;
             kanaInput = "";
             tileSelection = 0;
@@ -287,7 +348,7 @@ public final class GameScreen extends ScreenAdapter {
         } else {
             run.completeQuizEncounter();
             if (run.isBoss()) endingPending = true;
-            save();
+            if (StoryBeat.victory(run.stage, run.encounter) == null) save();
             audio.play(Cue.VICTORY);
         }
     }
@@ -325,15 +386,37 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private void advance() {
-        if (run.phase == Phase.LOST) {
+        if (tutorial && run.phase == Phase.WON) {
+            run.restore(0, 0);
+            if (!save()) {
+                run.x = CampaignRun.ENCOUNTER_X;
+                run.phase = Phase.LESSON;
+                run.completeQuizEncounter();
+                return;
+            }
+            tutorial = false;
+            enterStage();
+            showStory(StoryBeat.ELEMENTS_START, () -> mode = Mode.GAME);
+        } else if (run.phase == Phase.LOST) {
             run.restore(run.stage, run.encounter);
             enterStage();
         } else if (run.isFinalEncounter()) {
             endingPending = true;
             if (save()) cinematic(true);
         } else if (run.phase == Phase.WON) {
-            if (save()) { run.advance(); enterStage(); }
+            var beat = StoryBeat.victory(run.stage, run.encounter);
+            if (beat != null) showStory(beat, this::advanceCheckpoint);
+            else advanceCheckpoint();
         }
+    }
+
+    private void advanceCheckpoint() {
+        mode = Mode.GAME;
+        if (!save()) return;
+        run.advance();
+        enterStage();
+        var beat = StoryBeat.arrival(run.stage, run.encounter);
+        if (beat != null) showStory(beat, () -> mode = Mode.GAME);
     }
 
     private void clearDrawing() {
@@ -440,9 +523,10 @@ public final class GameScreen extends ScreenAdapter {
     private void back() {
         switch (mode) {
             case TITLE -> {}
-            case SLOTS -> menu();
+            case SLOTS -> { if (confirmDelete) confirmDelete = false; else menu(); }
             case SETTINGS -> closeSettings();
             case CINEMATIC -> finishCinematic();
+            case STORY -> continueStory(true);
             case GAME -> { cancelStroke(); mode = Mode.PAUSE; }
             case PAUSE -> mode = Mode.GAME;
             case JOURNAL -> mode = journalReturn;
@@ -464,16 +548,28 @@ public final class GameScreen extends ScreenAdapter {
 
     private void journal(Mode from) {
         journalReturn = from;
+        glossaryTab = GlossaryTab.KANJI;
         journalPage = 0;
         mode = Mode.JOURNAL;
     }
 
     List<FillQuiz> journalEntries() {
-        return quizzes.subList(0, Math.min(quizzes.size(), run.stage * 10 + run.encounter + 1));
+        return glossaryTab == GlossaryTab.KATAKANA ? bossQuizzes : quizzes;
+    }
+
+    private int journalSize() {
+        return journalEntries().size() + (glossaryTab == GlossaryTab.KATAKANA ? content.katakana.size() : 0);
+    }
+
+    int glossarySize() { return journalSize(); }
+
+    private void selectGlossaryTab(int index) {
+        glossaryTab = GlossaryTab.values()[index];
+        journalPage = 0;
     }
 
     private void practice() {
-        if (run.phase != Phase.WALK) return;
+        if (run.phase != Phase.WALK || glossaryTab != GlossaryTab.KANJI) return;
         var entries = journalEntries();
         if (entries.isEmpty()) return;
         practiceGlyph = entries.get(journalPage).kanji();
@@ -503,8 +599,23 @@ public final class GameScreen extends ScreenAdapter {
         switch (mode) {
             case TITLE -> title(TitleMenu.Option.at(x, y));
             case SLOTS -> {
+                if (confirmDelete) {
+                    if (hit(x, y, 414, 283, 200, 44)) confirmDelete = false;
+                    else if (hit(x, y, 666, 283, 200, 44)) deleteSelectedSlot();
+                    return;
+                }
                 if (hit(x, y, 490, 116, 300, 44)) back();
-                else for (int i = 0; i < 3; i++) if (hit(x, y, 320, 425 - i * 90, 640, 68)) selectSlot(i);
+                else for (int i = 0; i < slots.size(); i++) {
+                    int row = 425 - i * 90;
+                    if (slots.get(i).occupied() && hit(x, y, 840, row + 13, 100, 42)) {
+                        requestDelete(i);
+                        break;
+                    }
+                    if (hit(x, y, 320, row, 640, 68)) {
+                        selectSlot(i);
+                        break;
+                    }
+                }
             }
             case SETTINGS -> {
                 if (hit(x, y, 490, 136, 300, 42)) back();
@@ -519,14 +630,20 @@ public final class GameScreen extends ScreenAdapter {
                 if (hit(x, y, 460, 366, 360, 46)) back();
                 else if (hit(x, y, 460, 307, 360, 46)) journal(mode);
                 else if (hit(x, y, 460, 248, 360, 46)) settings(mode);
-                else if (hit(x, y, 460, 189, 360, 46) && save()) menu();
+                else if (hit(x, y, 460, 189, 360, 46) && (tutorial || save())) menu();
             }
             case JOURNAL -> {
-                int count = journalEntries().size();
+                int count = journalSize();
                 if (hit(x, y, 530, 115, 220, 42)) back();
                 else if (hit(x, y, 530, 270, 220, 42)) practice();
                 else if (count > 0 && hit(x, y, 312, 115, 180, 42)) journalPage = Math.floorMod(journalPage - 1, count);
                 else if (count > 0 && hit(x, y, 788, 115, 180, 42)) journalPage = (journalPage + 1) % count;
+                else for (int i = 0; i < GlossaryTab.values().length; i++) {
+                    if (hit(x, y, 324 + i * 214, 505, 204, 42)) {
+                        selectGlossaryTab(i);
+                        break;
+                    }
+                }
             }
             case GAME -> {
                 if (hit(x, y, 24, 646, 172, 46)) { cancelStroke(); journal(mode); }
@@ -535,9 +652,13 @@ public final class GameScreen extends ScreenAdapter {
                 else if (run.phase == Phase.LESSON && run.isBoss() && !revealed()) {
                     var options = tiles();
                     for (int i = 0; i < options.size(); i++) {
-                        if (hit(x, y, 332 + i * 88, 80, 76, 58)) { tileSelection = i; addTile(i); break; }
+                        if (hit(x, y, tileX(i, options.size()), 80, 76, 58)) { tileSelection = i; addTile(i); break; }
                     }
                 }
+            }
+            case STORY -> {
+                if (hit(x, y, 740, 75, 180, 44)) continueStory(false);
+                else if (hit(x, y, 360, 75, 180, 44)) continueStory(true);
             }
         }
     }
@@ -555,7 +676,10 @@ public final class GameScreen extends ScreenAdapter {
                     else if (key == Input.Keys.ENTER || key == Input.Keys.SPACE) title(titleSelection);
                 }
                 case SLOTS -> {
-                    if (key == Input.Keys.UP || key == Input.Keys.DOWN) {
+                    if (confirmDelete) {
+                        if (key == Input.Keys.ENTER) deleteSelectedSlot();
+                    } else if (key == Input.Keys.FORWARD_DEL) requestDelete(slotSelection);
+                    else if (key == Input.Keys.UP || key == Input.Keys.DOWN) {
                         slotSelection = Math.floorMod(slotSelection + (key == Input.Keys.UP ? -1 : 1), 3);
                     } else if (key == Input.Keys.ENTER) selectSlot(slotSelection);
                 }
@@ -573,17 +697,23 @@ public final class GameScreen extends ScreenAdapter {
                 }
                 case PAUSE -> {
                     if (key == Input.Keys.ENTER) back();
-                    else if (key == Input.Keys.S && save()) menu();
+                    else if (key == Input.Keys.S && (tutorial || save())) menu();
                 }
                 case JOURNAL -> {
-                    int size = journalEntries().size();
+                    int size = journalSize();
                     if (key == Input.Keys.TAB || key == Input.Keys.ENTER) back();
                     else if (size > 0 && (key == Input.Keys.LEFT || key == Input.Keys.RIGHT))
                         journalPage = Math.floorMod(journalPage + (key == Input.Keys.LEFT ? -1 : 1), size);
+                    else if (key == Input.Keys.NUM_1 || key == Input.Keys.NUM_2 || key == Input.Keys.NUM_3)
+                        selectGlossaryTab(key - Input.Keys.NUM_1);
                     else if (key == Input.Keys.Q) practice();
                 }
                 case PRACTICE -> drawingKey(key);
                 case GAME -> gameKey(key);
+                case STORY -> {
+                    if (key == Input.Keys.ENTER) continueStory(false);
+                    else if (key == Input.Keys.S) continueStory(true);
+                }
             }
             return true;
         }
