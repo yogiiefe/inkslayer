@@ -1,0 +1,13 @@
+// Resolve the existing declared dependencies for the optional managed Windows build helper.
+gradle.projectsEvaluated {
+    rootProject.tasks.register('resolveManagedBuildDependencies') {
+        doLast {
+            [':core', ':lwjgl3'].each { name ->
+                def module = rootProject.project(name)
+                ['compileClasspath', 'testCompileClasspath', 'runtimeClasspath', 'testRuntimeClasspath'].each { config ->
+                    module.configurations.getByName(config).files.each { ignored -> }
+                }
+            }
+        }
+    }
+}

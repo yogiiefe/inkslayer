@@ -1,0 +1,7 @@
+{
+  "width": 1800, "spawnX": 100, "enemyX": 1130,
+  "spell": {"damage": 30},
+  "enemy": {"health": 120},
+  "elements": ["FIRE","WATER","WOOD","EARTH"],
+  "damageMatrix": [[0.5,0.5,2,1],[2,0.5,1,0.5],[0.5,1,0.5,2],[1,2,0.5,0.5]]
+}

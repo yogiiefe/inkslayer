@@ -1,0 +1,113 @@
+{
+  "contentVersion": 1,
+  "katakana": [
+    {"text": "ペン", "meaning": "Pen", "romaji": "pen", "note": "ペ is pe. The small circle changes ヘ to ペ."},
+    {"text": "インク", "meaning": "Ink", "romaji": "inku"},
+    {"text": "ペット", "meaning": "Pet", "romaji": "petto", "note": "Small ッ makes a short pause before ト, written as doubled t in romaji."},
+    {"text": "ケージ", "meaning": "Cage", "romaji": "keeji", "note": "ー lengthens the e in ケ. The marks on シ make ジ (ji)."},
+    {"text": "ハムスター", "meaning": "Hamster", "romaji": "hamusutaa", "note": "ー lengthens the a in タ."},
+    {"text": "コート", "meaning": "Coat", "romaji": "kooto", "note": "ー lengthens the o in コ."},
+    {"text": "ブーツ", "meaning": "Boots", "romaji": "buutsu", "note": "The marks on フ make ブ (bu). ー lengthens its u."},
+    {"text": "タオル", "meaning": "Towel", "romaji": "taoru"}
+  ],
+  "lessons": [
+    {"glyph": "水", "codePoint": "U+6C34", "reading": "みず", "romaji": "mizu", "meaning": "Water", "strokeCount": 4, "katakana": "ペン"},
+    {"glyph": "火", "codePoint": "U+706B", "reading": "ひ", "romaji": "hi", "meaning": "Fire", "strokeCount": 4, "katakana": "インク"},
+    {"glyph": "金", "codePoint": "U+91D1", "reading": "きん", "romaji": "kin", "meaning": "Gold", "strokeCount": 8},
+    {"glyph": "木", "codePoint": "U+6728", "reading": "き", "romaji": "ki", "meaning": "Tree", "strokeCount": 4},
+    {"glyph": "土", "codePoint": "U+571F", "reading": "つち", "romaji": "tsuchi", "meaning": "Soil", "strokeCount": 3},
+    {"glyph": "犬", "codePoint": "U+72AC", "reading": "いぬ", "romaji": "inu", "meaning": "Dog", "strokeCount": 4, "katakana": "ペット"},
+    {"glyph": "猫", "codePoint": "U+732B", "reading": "ねこ", "romaji": "neko", "meaning": "Cat", "strokeCount": 11},
+    {"glyph": "鳥", "codePoint": "U+9CE5", "reading": "とり", "romaji": "tori", "meaning": "Bird", "strokeCount": 11, "katakana": "ケージ"},
+    {"glyph": "魚", "codePoint": "U+9B5A", "reading": "さかな", "romaji": "sakana", "meaning": "Fish", "strokeCount": 11},
+    {"glyph": "馬", "codePoint": "U+99AC", "reading": "うま", "romaji": "uma", "meaning": "Horse", "strokeCount": 10, "katakana": "ハムスター"},
+    {"glyph": "雨", "codePoint": "U+96E8", "reading": "あめ", "romaji": "ame", "meaning": "Rain", "strokeCount": 8, "katakana": "コート"},
+    {"glyph": "風", "codePoint": "U+98A8", "reading": "かぜ", "romaji": "kaze", "meaning": "Wind", "strokeCount": 9},
+    {"glyph": "雪", "codePoint": "U+96EA", "reading": "ゆき", "romaji": "yuki", "meaning": "Snow", "strokeCount": 11, "katakana": "ブーツ"},
+    {"glyph": "雲", "codePoint": "U+96F2", "reading": "くも", "romaji": "kumo", "meaning": "Cloud", "strokeCount": 12},
+    {"glyph": "空", "codePoint": "U+7A7A", "reading": "そら", "romaji": "sora", "meaning": "Sky", "strokeCount": 8, "katakana": "タオル"}
+  ],
+  "stages": [
+    {
+      "name": "Elements",
+      "encounters": [
+        {"id":"s1-01","name":"Ember","element":"FIRE","attacks":["FIRE"],"health":30,"damage":6,"lessonId":"水"},
+        {"id":"s1-02","name":"Iron","element":"METAL","attacks":["METAL"],"health":32,"damage":6,"lessonId":"火"},
+        {"id":"s1-03","name":"Thorn","element":"WOOD","attacks":["WOOD"],"health":34,"damage":6,"lessonId":"金"},
+        {"id":"s1-04","name":"Clay","element":"EARTH","attacks":["EARTH"],"health":36,"damage":7,"lessonId":"木"},
+        {"id":"s1-05","name":"Mist","element":"WATER","attacks":["WATER"],"health":38,"damage":7,"lessonId":"土"},
+        {"id":"s1-06","name":"Ember II","element":"FIRE","attacks":["FIRE","WOOD"],"health":42,"damage":7,"lessonId":"水"},
+        {"id":"s1-07","name":"Iron II","element":"METAL","attacks":["METAL","WATER"],"health":44,"damage":7,"lessonId":"火"},
+        {"id":"s1-08","name":"Thorn II","element":"WOOD","attacks":["WOOD","FIRE"],"health":46,"damage":8,"lessonId":"金"},
+        {"id":"s1-09","name":"Clay II","element":"EARTH","attacks":["EARTH","METAL"],"health":48,"damage":8,"lessonId":"木"},
+        {"id":"s1-10","name":"Gate Inspector","element":"WATER","attacks":["WATER","EARTH","FIRE"],"health":64,"damage":8,"lessonId":"土"}
+      ]
+    },
+    {
+      "name": "Pets",
+      "encounters": [
+        {"id":"s2-01","name":"Ember Hound","element":"FIRE","attacks":["FIRE","EARTH"],"health":40,"damage":7,"lessonId":"犬"},
+        {"id":"s2-02","name":"Moss Cat","element":"WOOD","attacks":["WOOD","WATER"],"health":42,"damage":7,"lessonId":"猫"},
+        {"id":"s2-03","name":"Iron Bird","element":"METAL","attacks":["METAL","FIRE"],"health":42,"damage":7,"lessonId":"鳥"},
+        {"id":"s2-04","name":"Mist Fish","element":"WATER","attacks":["WATER","WOOD"],"health":44,"damage":8,"lessonId":"魚"},
+        {"id":"s2-05","name":"Clay Horse","element":"EARTH","attacks":["EARTH","METAL"],"health":44,"damage":8,"lessonId":"馬"},
+        {"id":"s2-06","name":"Hound Sentinel","element":"FIRE","attacks":["WOOD","FIRE"],"health":46,"damage":8,"lessonId":"犬"},
+        {"id":"s2-07","name":"Cat Sentinel","element":"WOOD","attacks":["FIRE","WOOD"],"health":46,"damage":8,"lessonId":"猫"},
+        {"id":"s2-08","name":"Bird Sentinel","element":"METAL","attacks":["WATER","METAL"],"health":48,"damage":8,"lessonId":"鳥"},
+        {"id":"s2-09","name":"Fish Sentinel","element":"WATER","attacks":["EARTH","WATER"],"health":50,"damage":8,"lessonId":"魚"},
+        {"id":"s2-10","name":"Stable Inspector","element":"EARTH","attacks":["METAL","EARTH","WOOD"],"health":70,"damage":9,"lessonId":"馬"}
+      ]
+    },
+    {
+      "name": "Weather",
+      "encounters": [
+        {"id":"s3-01","name":"Rain Wisp","element":"WATER","attacks":["WATER","METAL"],"health":42,"damage":8,"lessonId":"雨"},
+        {"id":"s3-02","name":"Gale Wisp","element":"WOOD","attacks":["WOOD","EARTH"],"health":44,"damage":8,"lessonId":"風"},
+        {"id":"s3-03","name":"Snow Wisp","element":"METAL","attacks":["METAL","WATER"],"health":44,"damage":8,"lessonId":"雪"},
+        {"id":"s3-04","name":"Cloud Wisp","element":"EARTH","attacks":["EARTH","FIRE"],"health":46,"damage":8,"lessonId":"雲"},
+        {"id":"s3-05","name":"Dusk Wisp","element":"FIRE","attacks":["FIRE","WOOD"],"health":46,"damage":8,"lessonId":"空"},
+        {"id":"s3-06","name":"Rain Sentinel","element":"WATER","attacks":["FIRE","WATER"],"health":48,"damage":8,"lessonId":"雨"},
+        {"id":"s3-07","name":"Gale Sentinel","element":"WOOD","attacks":["METAL","WOOD"],"health":48,"damage":9,"lessonId":"風"},
+        {"id":"s3-08","name":"Snow Sentinel","element":"METAL","attacks":["EARTH","METAL"],"health":50,"damage":9,"lessonId":"雪"},
+        {"id":"s3-09","name":"Cloud Sentinel","element":"EARTH","attacks":["WOOD","WATER","EARTH"],"health":50,"damage":9,"lessonId":"雲"},
+        {"id":"s3-10","name":"Weather Inspector","element":"FIRE","attacks":["WATER","FIRE","METAL"],"health":76,"damage":9,"lessonId":"空"}
+      ]
+    },
+    {
+      "name": "Examination",
+      "encounters": [
+        {"id":"s4-01","name":"Examiner I","element":"FIRE","attacks":["FIRE","WATER"],"health":44,"damage":8,"lessonId":"水"},
+        {"id":"s4-02","name":"Examiner II","element":"METAL","attacks":["METAL","EARTH"],"health":46,"damage":8,"lessonId":"金"},
+        {"id":"s4-03","name":"Examiner III","element":"WATER","attacks":["WATER","WOOD"],"health":46,"damage":8,"lessonId":"土"},
+        {"id":"s4-04","name":"Examiner IV","element":"WOOD","attacks":["WOOD","METAL"],"health":48,"damage":9,"lessonId":"犬"},
+        {"id":"s4-05","name":"Examiner V","element":"EARTH","attacks":["EARTH","FIRE"],"health":48,"damage":9,"lessonId":"鳥"},
+        {"id":"s4-06","name":"Examiner VI","element":"FIRE","attacks":["WOOD","FIRE"],"health":50,"damage":9,"lessonId":"猫"},
+        {"id":"s4-07","name":"Examiner VII","element":"WATER","attacks":["METAL","WATER"],"health":50,"damage":9,"lessonId":"雨"},
+        {"id":"s4-08","name":"Examiner VIII","element":"METAL","attacks":["FIRE","EARTH"],"health":50,"damage":9,"lessonId":"雪"},
+        {"id":"s4-09","name":"Examiner IX","element":"WOOD","attacks":["WATER","METAL","WOOD"],"health":80,"damage":10,"lessonId":"雲"},
+        {"id":"s4-10","name":"Mr. Kotoba","element":"METAL","attacks":["FIRE","WATER","WOOD","EARTH","METAL"],"health":20,"damage":10}
+      ]
+    }
+  ],
+  "bossRounds": [
+    {"characters":["水","火","金","木","土"],"attacks":["FIRE","WATER"]},
+    {"characters":["犬","猫","鳥","魚","馬"],"attacks":["WOOD","EARTH"]},
+    {"characters":["雨","風","雪","雲","空"],"attacks":["METAL"]}
+  ],
+  "opening": [
+    "At dawn the city speaks in one voice. By decree, every resident must answer in Japanese.",
+    "Mr. Kotoba's inspectors carry ledgers from door to door. Anyone who fails the inspection is condemned.",
+    "The inspector passes your door. A clerk left one name off the list: yours.",
+    "At the gate, a scrap of paper reads 水. You trace the four strokes. Water spills from the ink.",
+    "Past the gate, the inspectors guard the animal district and the road through the storm.",
+    "Their ledgers lead to Mr. Kotoba. You pocket the pen and set out for the first gate."
+  ],
+  "ending": [
+    "Mr. Kotoba turns the last page. You have read, recalled and written your way through all three rounds.",
+    "His final seal cracks. The inspector sets his pen down and opens the examination hall.",
+    "The gates unlock. Outside, the people gather to read the orders that kept them apart.",
+    "They take the inspection notices down and put up a sign for a free class.",
+    "A student asks how to write water. You draw 水, stroke by stroke, and pass them the pen.",
+    "The city still has much to learn. This time, there is room to make a mistake."
+  ]
+}

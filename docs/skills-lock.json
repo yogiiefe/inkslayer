@@ -1,0 +1,92 @@
+﻿{
+    "schemaVersion":  1,
+    "created":  "2026-11-14",
+    "origin":  "INKSLAYER original project-local skills",
+    "thirdPartyInstalled":  [
+
+                            ],
+    "codexVersion":  "0.169.0",
+    "nativeDiscovery":  "blocked: Could not find home directory",
+    "files":  [
+                  {
+                      "path":  ".agents/skills/2d-platformer-development/SKILL.md",
+                      "sha256":  "84329ca5e75db00e1f90d6679b7ece7bad9e48fae5cc530d70ac0c571dca61a2"
+                  },
+                  {
+                      "path":  ".agents/skills/boss-battle-design/SKILL.md",
+                      "sha256":  "0e868ff2b16b569a8fac10a99b524b4ac6537c499707557700db1ddcd9f6c1ff"
+                  },
+                  {
+                      "path":  ".agents/skills/elemental-combat-system/SKILL.md",
+                      "sha256":  "69f960366a3a4bb3bb3865276dc2625031a7c0c28b099ea44ee5064be2187a3e"
+                  },
+                  {
+                      "path":  ".agents/skills/enemy-ai-development/SKILL.md",
+                      "sha256":  "1a892a2550b771074af5c980fe67376b88ee892a07975b81ffcc5c47ccc1382f"
+                  },
+                  {
+                      "path":  ".agents/skills/game-dialogue-system/SKILL.md",
+                      "sha256":  "a3b2a0e89db86bc9278d87c38d43ecc37c536db0b58060336c66950d63be3987"
+                  },
+                  {
+                      "path":  ".agents/skills/game-save-system/SKILL.md",
+                      "sha256":  "ee9a87dd864fc7f6f99202f81b8e8eb1e30ca86eb0ab308ee2beb46fbdb0f7f4"
+                  },
+                  {
+                      "path":  ".agents/skills/inkslayer-audio-design/SKILL.md",
+                      "sha256":  "991839e844f277df882c58cfe895a5b366f0d4c3bcdc4ee8e8361cfec95fb434"
+                  },
+                  {
+                      "path":  ".agents/skills/inkslayer-project-context/SKILL.md",
+                      "sha256":  "264f04d0b979baf856da9362a46f5a27bb277dfdb834eeb75e30562741a0f9d9"
+                  },
+                  {
+                      "path":  ".agents/skills/inkslayer-spellcasting/SKILL.md",
+                      "sha256":  "6b859dd249ebc700950935d4fbe2434696a47a2cd08af3fca98aac6a62d87fd7"
+                  },
+                  {
+                      "path":  ".agents/skills/inkslayer-ui-accessibility/SKILL.md",
+                      "sha256":  "6d3355b1a1e90040cf95d33b126a64a7f7dd720246005f027e4092a5666737fd"
+                  },
+                  {
+                      "path":  ".agents/skills/japanese-learning-design/SKILL.md",
+                      "sha256":  "c43cea29d444d4c6f8a8ec74177fe646f522a073fa8bcb890ec1882a21ea3900"
+                  },
+                  {
+                      "path":  ".agents/skills/java-game-development/SKILL.md",
+                      "sha256":  "b219c87bdf44efeec3ff5b18e3518c83f6c0d316affb595e10323888eae9ef10"
+                  },
+                  {
+                      "path":  ".agents/skills/java-game-testing/scripts/validate-skills.ps1",
+                      "sha256":  "b1e20aa19685a5cc59a232018b7df7ea6ab449b18dfc4e896806caf6012cd8da"
+                  },
+                  {
+                      "path":  ".agents/skills/java-game-testing/SKILL.md",
+                      "sha256":  "a833bdae8157e2f7f8b95651e2f759a49612038468460202a0dd90705b58e71e"
+                  },
+                  {
+                      "path":  ".agents/skills/kanji-handwriting-recognition/references/recognition-contract.md",
+                      "sha256":  "57c3aca39f71602bba53d88b2eb527b06cc60b7fd8fb906772bc12cbeb1778ae"
+                  },
+                  {
+                      "path":  ".agents/skills/kanji-handwriting-recognition/references/sources.md",
+                      "sha256":  "04e2b83ccf75c94b3787ce273508ad670ff2788f12342310cd8fb935230f365f"
+                  },
+                  {
+                      "path":  ".agents/skills/kanji-handwriting-recognition/SKILL.md",
+                      "sha256":  "89828f8d5cd7548ffc9d928df99b3ec517af84070bf1d650f0c5e0c33db36aa0"
+                  },
+                  {
+                      "path":  ".agents/skills/kanji-stroke-order-validation/SKILL.md",
+                      "sha256":  "18a280e91840ef51a66c6acb1123b4e3ee690db2b318e004e56ca9bee3e2fd20"
+                  },
+                  {
+                      "path":  ".agents/skills/metroidvania-world-design/SKILL.md",
+                      "sha256":  "fe4d9e3e151f9c05f2e6ff09929506342b761da83ceefad920d44a4d27f35ec0"
+                  },
+                  {
+                      "path":  ".agents/skills/pixel-art-pipeline/SKILL.md",
+                      "sha256":  "919db987191844e8ae9be57011a250d4b63624d9c9258011bfbe85a53ee16116"
+                  }
+              ]
+}
