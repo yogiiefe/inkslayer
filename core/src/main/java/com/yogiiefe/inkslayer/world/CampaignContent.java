@@ -27,9 +27,10 @@ public final class CampaignContent {
         }
     }
 
-    public record Stage(String name, List<Encounter> encounters) {
+    public record Stage(String name, List<Encounter> encounters, List<String> opening) {
         public Stage {
             encounters = List.copyOf(encounters);
+            opening = List.copyOf(opening);
         }
     }
 
@@ -42,7 +43,6 @@ public final class CampaignContent {
     public final List<KanaWord> katakana;
     public final List<List<String>> bossRounds;
     public final List<List<String>> bossAttacks;
-    public final List<String> opening;
     public final List<String> ending;
 
     public CampaignContent(String json) {
@@ -51,7 +51,6 @@ public final class CampaignContent {
         katakana = readKana(array(root, "katakana", 8, 8));
         lessons = readLessons(array(root, "lessons", 15, 15), katakana);
         stages = readStages(array(root, "stages", 4, 4), lessons);
-        opening = strings(array(root, "opening", 5, 7));
         ending = strings(array(root, "ending", 5, 7));
 
         var rounds = new ArrayList<List<String>>();
@@ -131,7 +130,7 @@ public final class CampaignContent {
                 require(health > 0 && damage > 0, id + " has invalid combat parameters");
                 encounters.add(new Encounter(id, field(entry, "name"), element, attacks, health, damage, lesson));
             }
-            result.add(new Stage(field(stage, "name"), encounters));
+            result.add(new Stage(field(stage, "name"), encounters, strings(array(stage, "opening", 3, 7))));
         }
         require(taught.equals(lessons.keySet()), "Every lesson must be taught before the final examination");
         return List.copyOf(result);

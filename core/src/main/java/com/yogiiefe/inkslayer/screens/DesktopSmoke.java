@@ -6,33 +6,34 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.PixmapIO;
 import com.badlogic.gdx.math.Vector2;
 import com.yogiiefe.inkslayer.audio.GameAudio.Channel;
+import com.yogiiefe.inkslayer.screens.KeyBindings.Action;
 
 import com.yogiiefe.inkslayer.world.CampaignRun;
 import com.yogiiefe.inkslayer.world.CampaignRun.Phase;
+
+import static com.yogiiefe.inkslayer.screens.GameScreen.*;
 
 /** Opt-in packaged desktop probe. Generates mouse input from the reference stroke paths. */
 final class DesktopSmoke {
     private int frames, battles, questions;
     private boolean invalidChecked, reloaded, practiceChecked, firstBrushShown, glossaryShown, practiceShown, pauseShown;
     private boolean resizing;
+    private boolean initialGuideShown;
 
     void frame(GameScreen g) {
         if (resizing) return;
         frames++;
         require(frames < 6500, "campaign timed out");
         if (frames < 5) return;
-        if (frames == 5) {
-            capture("title");
-            key(Input.Keys.DOWN);
-            key(Input.Keys.DOWN);
-            key(Input.Keys.ENTER);
-            require(g.mode == GameScreen.Mode.SETTINGS, "settings route");
+        if (frames >= 5 && frames <= 7) {
+            titleMenu(g);
             return;
         }
-        if (frames == 6) {
+        if (frames == 8) {
             capture("settings");
             resizing = true;
             try {
+                key(Input.Keys.UP);
                 key(Input.Keys.UP);
                 key(Input.Keys.RIGHT);
                 require(g.displayMode == DisplayMode.BORDERLESS && !Gdx.graphics.isFullscreen(), "borderless mode");
@@ -42,6 +43,7 @@ final class DesktopSmoke {
                 require(g.displayMode == DisplayMode.WINDOWED && !Gdx.graphics.isFullscreen(), "windowed mode");
                 require(Gdx.app.getPreferences("inkslayer-display").getString("mode").equals("WINDOWED"), "display preference");
                 key(Input.Keys.DOWN);
+                key(Input.Keys.DOWN);
             } finally {
                 resizing = false;
             }
@@ -49,18 +51,37 @@ final class DesktopSmoke {
             key(Input.Keys.LEFT);
             require(g.audio.volume(Channel.MASTER) == Math.max(0, value - 5), "master slider");
             g.audio.volume(Channel.MASTER, value);
+            key(Input.Keys.UP);
+            key(Input.Keys.ENTER);
+            require(g.mode == GameScreen.Mode.KEYBINDS, "open Keybinds from Settings");
+            for (int i = 0; i < Action.HELP.ordinal(); i++) key(Input.Keys.DOWN);
+            key(Input.Keys.ENTER);
+            key(Input.Keys.ENTER);
+            require(g.bindingKey && !g.bindingMessage.isEmpty(), "duplicate gameplay keys must be rejected");
+            key(Input.Keys.G);
+            require(!g.bindingKey && new KeyBindings().matches(Action.HELP, Input.Keys.G), "help key persists");
+            key(Input.Keys.ESCAPE);
             key(Input.Keys.ESCAPE);
             key(Input.Keys.UP);
             key(Input.Keys.UP);
             key(Input.Keys.ENTER);
-            require(g.mode == GameScreen.Mode.CINEMATIC && g.panel == 0, "New must open the prologue directly");
-            require(g.slot == 0 && !g.saveStore.inspect(0).occupied(), "use an empty -Dinkslayer.saves directory for smoke");
+            require(g.mode == Mode.CHAPTER_SELECT && g.chapterSelection == 0, "New must open chapter selection");
+            require(!g.saveStore.inspect(0).occupied(), "use an empty -Dinkslayer.saves directory for smoke");
             return;
         }
-        if (frames == 7) {
+        if (frames == 9) {
+            capture("chapter-select");
+            key(Input.Keys.ENTER);
+            require(g.mode == Mode.CINEMATIC && g.tutorial && g.panel == 0, "Elements starts its prologue");
+            require(g.panels().getFirst().equals("In this world!"), "Elements opening card");
+            key(Input.Keys.ENTER);
+            key(Input.Keys.SPACE);
+            click(g, 395, 72);
+            require(g.mode == Mode.CINEMATIC && g.panel == 0, "old Next inputs must not advance a cinematic");
+            return;
+        }
+        if (frames == 10) {
             capture("opening");
-            key(Input.Keys.S);
-            require(g.mode == GameScreen.Mode.GAME && g.tutorial && !g.saveStore.inspect(0).occupied(), "opening must enter tutorial");
             return;
         }
 
@@ -76,30 +97,142 @@ final class DesktopSmoke {
             }
             case PAUSE -> {
                 if (!pauseShown) { capture("pause"); pauseShown = true; }
-                key(Input.Keys.ESCAPE);
+                key(practiceChecked ? Input.Keys.ESCAPE : Input.Keys.TAB);
             }
             case JOURNAL -> {
                 if (!glossaryShown && g.glossaryTab == GameScreen.GlossaryTab.KANJI) {
                     capture("glossarium");
                     glossaryShown = true;
                 }
-                key(Input.Keys.ESCAPE);
+                if (practiceChecked) key(Input.Keys.ESCAPE);
+                else checkPractice(g);
             }
             case PRACTICE -> {
                 if (!practiceShown) { capture("practice"); practiceShown = true; }
                 key(Input.Keys.ESCAPE);
             }
             case CINEMATIC -> {
+                if (!g.ending) {
+                    checkChapterOpening(g);
+                    return;
+                }
                 require(g.ending && battles == 40, "ending before all 40 battles");
                 require(g.saveStore.inspect(0).progress().endingPending(), "missing ending checkpoint");
                 capture("ending");
-                key(Input.Keys.S);
+                skipCinematic(g);
                 require(g.mode == GameScreen.Mode.TITLE && g.saveStore.inspect(0).progress().completed(), "ending did not save");
-                Gdx.app.log("SMOKE", "PASS: opening, tutorial, story, display modes, 40 encounters, " + questions + " accepted quiz answers, checkpoint reload and ending");
+                checkDirectChapterStarts(g);
+                Gdx.app.log("SMOKE", "PASS: chapter selection, automatic cinematic advance, Skip, chapter checkpoints, keybinds, guides, "
+                    + battles + " encounters, "
+                    + questions + " accepted quiz answers, checkpoint reload and ending");
                 Gdx.app.exit();
             }
             default -> throw new IllegalStateException("SMOKE: unexpected " + g.mode);
         }
+    }
+
+    private void checkChapterOpening(GameScreen g) {
+        int chapter = g.run.stage;
+        require(g.run.encounter == 0 && chapter == battles / 10, "unexpected chapter opening");
+        if (chapter == 0) {
+            if (g.panel == 0) return;
+            require(g.panel == 1, "cinematic advances automatically by one card");
+            capture("opening-second-card");
+        } else {
+            var saved = g.saveStore.inspect(0).progress();
+            require(saved.stage() == chapter && saved.encounter() == 0, "chapter transition checkpoint");
+            capture("chapter-" + (chapter + 1) + "-opening");
+        }
+        skipCinematic(g);
+        require(g.mode == Mode.GAME && g.tutorial == (chapter == 0), "opening must enter the selected stage");
+        if (chapter == 0) require(!g.saveStore.inspect(0).occupied(), "tutorial should precede first checkpoint");
+    }
+
+    private void checkDirectChapterStarts(GameScreen g) {
+        int artPixel = PixelArtViewport.ART_PIXEL;
+        for (int chapter = 1; chapter < g.content.stages.size(); chapter++) {
+            click(g, 290 * artPixel, (PixelArtViewport.ART_HEIGHT - 132) * artPixel);
+            require(g.mode == Mode.CHAPTER_SELECT, "return to chapter selection");
+            click(g, CHAPTER_X + CHAPTER_WIDTH / 2f, chapterY(chapter) + CHAPTER_HEIGHT / 2f);
+            require(g.mode == Mode.CINEMATIC && !g.tutorial && g.run.stage == chapter && g.run.encounter == 0,
+                "direct chapter start");
+            require(g.learning.isEmpty(), "direct chapter must start a fresh run");
+            int expectedSlot = chapter < 3 ? chapter : -1;
+            require(g.slot == expectedSlot, "chapter should use an empty slot or play without saving");
+            if (expectedSlot >= 0) {
+                var saved = g.saveStore.inspect(expectedSlot).progress();
+                require(saved.stage() == chapter && saved.encounter() == 0, "direct chapter checkpoint");
+            }
+            skipCinematic(g);
+            require(g.mode == Mode.GAME && g.run.phase == Phase.WALK && g.run.stage == chapter, "direct chapter is playable");
+            key(Input.Keys.ESCAPE);
+            key(Input.Keys.S);
+            require(g.mode == Mode.TITLE, "exit directly selected chapter");
+        }
+        require(g.saveStore.inspect(0).progress().completed(), "direct starts must preserve the completed slot");
+        require(g.saveStore.inspect(1).progress().stage() == 1 && g.saveStore.inspect(2).progress().stage() == 2,
+            "starting a chapter with full slots must not overwrite a save");
+        key(Input.Keys.DOWN);
+        key(Input.Keys.ENTER);
+        key(Input.Keys.DOWN);
+        key(Input.Keys.ENTER);
+        require(g.mode == Mode.CINEMATIC && g.run.stage == 1 && g.run.encounter == 0, "chapter-start save reopens the cinematic");
+        skipCinematic(g);
+        require(g.mode == Mode.GAME && g.slot == 1, "chapter-start save restores its run");
+    }
+
+    private void titleMenu(GameScreen g) {
+        var input = Gdx.input.getInputProcessor();
+        int artPixel = PixelArtViewport.ART_PIXEL;
+        var settings = screen(g, 282 * artPixel, (PixelArtViewport.ART_HEIGHT - 155) * artPixel);
+        int x = Math.round(settings.x), y = Math.round(settings.y);
+        if (frames == 5) {
+            capture("title");
+            key(Input.Keys.DOWN);
+            require(g.titleSelection == TitleMenu.Option.SAVE, "title arrow's Save target");
+            return;
+        }
+        if (frames == 6) {
+            capture("title-save-selected");
+            key(Input.Keys.DOWN);
+            require(g.titleSelection == TitleMenu.Option.SETTINGS, "title keyboard navigation");
+            var blank = screen(g, 160 * artPixel, 90 * artPixel);
+            input.mouseMoved(Math.round(blank.x), Math.round(blank.y));
+            require(g.titleHover == null, "blank title background must not select a menu option");
+            input.mouseMoved(x, y);
+            require(g.titleHover == TitleMenu.Option.SETTINGS, "title Settings hover");
+            return;
+        }
+        if (g.elapsed - g.titleHoverAt < 0.25) {
+            frames--;
+            return;
+        }
+        double hoverAt = g.titleHoverAt;
+        input.mouseMoved(x + 1, y);
+        require(g.titleHover == TitleMenu.Option.SETTINGS && g.titleHoverAt == hoverAt,
+            "mouse movement within Settings must not restart hover");
+        capture("title-hover");
+        input.touchDown(x, y, 0, Input.Buttons.LEFT);
+        input.touchUp(x, y, 0, Input.Buttons.LEFT);
+        require(g.mode == GameScreen.Mode.SETTINGS, "title Settings click");
+    }
+
+    private void checkPractice(GameScreen g) {
+        require(g.glossarySize() == 39, "Kanji glossary coverage");
+        key(Input.Keys.NUM_2);
+        key(Input.Keys.LEFT);
+        require(g.glossarySize() == 39 && g.journalPage == 38, "Hiragana glossary navigation");
+        key(Input.Keys.NUM_3);
+        key(Input.Keys.LEFT);
+        require(g.glossarySize() == g.bossQuestionCount() + g.content.katakana.size()
+            && g.journalPage == g.glossarySize() - 1, "Katakana glossary coverage");
+        key(Input.Keys.NUM_1);
+        key(Input.Keys.Q);
+        require(g.mode == GameScreen.Mode.PRACTICE && "水".equals(g.guideGlyph), "safe practice route and guide");
+        draw(g, "水");
+        key(Input.Keys.ENTER);
+        require(g.learning.containsKey("水") && g.run.phase == Phase.WALK, "practice changed the campaign state");
+        practiceChecked = true;
     }
 
     private void play(GameScreen g) {
@@ -108,8 +241,17 @@ final class DesktopSmoke {
                 case WALK -> g.run.x = CampaignRun.ENCOUNTER_X;
                 case LESSON -> {
                     if (g.revealed()) return;
-                    require(g.hint && g.run.hp == CampaignRun.MAX_HP, "tutorial guide and safety");
+                    if (!initialGuideShown) {
+                        require("水".equals(g.guideGlyph), "tutorial guide must appear automatically");
+                        checkPixelScaling(g.viewport);
+                        initialGuideShown = true;
+                    }
+                    if (g.guideGlyph != null) return;
                     capture("tutorial");
+                    key(Input.Keys.H);
+                    require(g.guideGlyph == null, "old help key must no longer show the guide");
+                    key(Input.Keys.G);
+                    require("水".equals(g.guideGlyph) && g.guideProgress == 0, "remapped help must replay the guide from the start");
                     key(Input.Keys.ENTER);
                     require(!g.revealed() && g.run.hp == CampaignRun.MAX_HP, "failed tutorial attempt dealt damage");
                     draw(g, "水");
@@ -118,7 +260,7 @@ final class DesktopSmoke {
                 }
                 case WON -> {
                     key(Input.Keys.ENTER);
-                    require(!g.tutorial && g.mode == GameScreen.Mode.STORY && g.story == StoryBeat.ELEMENTS_START
+                    require(!g.tutorial && g.mode == Mode.GAME
                         && g.saveStore.inspect(0).progress().encounter() == 0, "Stage 1 checkpoint");
                 }
                 default -> throw new IllegalStateException("Unexpected tutorial phase");
@@ -128,30 +270,9 @@ final class DesktopSmoke {
         switch (g.run.phase) {
             case WALK -> {
                 if (battles == 0 && !pauseShown) {
+                    key(Input.Keys.TAB);
+                    require(g.mode == GameScreen.Mode.GAME, "Glossarium must open only from Pause during gameplay");
                     key(Input.Keys.ESCAPE);
-                    return;
-                }
-                if (battles == 0 && !glossaryShown) {
-                    key(Input.Keys.Q);
-                    return;
-                }
-                if (battles == 0 && !practiceChecked) {
-                    key(Input.Keys.Q);
-                    require(g.glossarySize() == 39, "Kanji glossary coverage");
-                    key(Input.Keys.NUM_2);
-                    key(Input.Keys.LEFT);
-                    require(g.glossarySize() == 39 && g.journalPage == 38, "Hiragana glossary navigation");
-                    key(Input.Keys.NUM_3);
-                    key(Input.Keys.LEFT);
-                    require(g.glossarySize() == g.bossQuestionCount() + g.content.katakana.size()
-                        && g.journalPage == g.glossarySize() - 1, "Katakana glossary coverage");
-                    key(Input.Keys.NUM_1);
-                    key(Input.Keys.Q);
-                    require(g.mode == GameScreen.Mode.PRACTICE, "safe practice route");
-                    draw(g, "水");
-                    key(Input.Keys.ENTER);
-                    require(g.learning.containsKey("水") && g.run.phase == Phase.WALK, "practice changed the campaign state");
-                    practiceChecked = true;
                     return;
                 }
                 if (battles == 2 && !reloaded) {
@@ -184,6 +305,7 @@ final class DesktopSmoke {
                     if (g.bossQuestionNumber() == 1) capture("kotoba");
                 } else {
                     if (battles == 0 && !firstBrushShown) {
+                        require(g.quiz().kanji().equals(g.guideGlyph), "battle guide must appear automatically");
                         draw(g, g.quiz().kanji());
                         firstBrushShown = true;
                         return;
@@ -233,6 +355,41 @@ final class DesktopSmoke {
     }
 
     private void key(int key) { Gdx.input.getInputProcessor().keyDown(key); }
+
+    private void skipCinematic(GameScreen g) {
+        click(g, SKIP_X + SKIP_WIDTH / 2f, SKIP_Y + SKIP_HEIGHT / 2f);
+    }
+
+    private void click(GameScreen g, float worldX, float worldY) {
+        Vector2 p = screen(g, worldX, worldY);
+        var input = Gdx.input.getInputProcessor();
+        int x = Math.round(p.x), y = Math.round(p.y);
+        input.touchDown(x, y, 0, Input.Buttons.LEFT);
+        input.touchUp(x, y, 0, Input.Buttons.LEFT);
+    }
+
+    private void checkPixelScaling(PixelArtViewport viewport) {
+        int width = Gdx.graphics.getBackBufferWidth(), height = Gdx.graphics.getBackBufferHeight();
+        int scale = Math.min(width / PixelArtViewport.ART_WIDTH, height / PixelArtViewport.ART_HEIGHT);
+        int contentWidth = PixelArtViewport.ART_WIDTH * scale, contentHeight = PixelArtViewport.ART_HEIGHT * scale;
+        require(scale > 0 && viewport.getScreenWidth() == contentWidth && viewport.getScreenHeight() == contentHeight,
+            "art viewport must use the largest whole-pixel scale");
+        require(viewport.getScreenX() == (width - contentWidth) / 2 && viewport.getScreenY() == (height - contentHeight) / 2,
+            "letterbox must be centered in the backbuffer");
+
+        // At the arena's left edge, the floor line is exactly one art pixel high.
+        int floor = viewport.getScreenY() + GameScreen.CANVAS_TOP / PixelArtViewport.ART_PIXEL * scale;
+        var pixels = Pixmap.createFromFrameBuffer(viewport.getScreenX() + scale, floor - scale - 1, 1, scale + 2);
+        try {
+            int line = pixels.getPixel(0, 1);
+            require(pixels.getPixel(0, 0) == 0xffffffff && line != 0xffffffff && line != pixels.getPixel(0, scale + 1),
+                "floor line must sit between the canvas and arena");
+            for (int y = 1; y <= scale; y++)
+                require(pixels.getPixel(0, y) == line, "art pixel must span exactly " + scale + " backbuffer rows");
+        } finally {
+            pixels.dispose();
+        }
+    }
 
     private Vector2 screen(GameScreen g, float x, float y) {
         Vector2 p = g.viewport.project(new Vector2(x, y));

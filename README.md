@@ -12,15 +12,15 @@ To launch the JAR directly from the project root:
 java -jar 'lwjgl3/build/libs/INKSLAYER!-1.0.0.jar'
 ```
 
-Select **New** to watch or skip the text prologue. Walk right in **The Unchecked Door** and use the stroke guide to draw 水. Submit with Enter to open the water gate. The first checkpoint is at the entrance to Stage 1. The game uses the first empty save slot. If all slots are occupied, the new run plays without saving.
+Select **New** and choose **Elements**, **Pets**, **Weather**, or **Food**. Each chapter opens with an automatically advancing cinematic. Click **Skip** in the top-right corner or press S to start playing. Choosing Elements starts with **The Unchecked Door**. Walk right, draw 水, and submit to open the water gate. Elements saves its first checkpoint after the tutorial. A later chapter starts at its first encounter and saves that checkpoint when selected. If all slots are occupied, the new run plays without saving.
 
-In battle, read the English clue and draw the missing Kanji anywhere below the floor line. A correct answer completes the sentence and casts a spell. Press Enter to advance story dialogue or S to skip the scene.
+In battle, read the English clue and draw the missing Kanji anywhere below the floor line. A correct answer completes the sentence and casts a spell. Press Enter to advance in-game dialogue or S to skip the scene. Finishing a chapter opens the next chapter's cinematic.
 
 The campaign has 39 different Kanji quizzes across Elements, Pets, Weather, and Food. Mr. Kotoba tests the katakana readings of four Kanji introduced earlier. **Save** on the main menu loads a checkpoint. The game saves before the first encounter, after each win, and at the ending. **Save & Return to Menu** in pause resumes at the current encounter checkpoint.
 
 ## Controls
 
-In Settings, select **Display** to switch between Windowed, Borderless, and Fullscreen. Click the option or select it with Up/Down and change it with Left/Right. The display mode is saved for the next launch.
+In Settings, select **Display** to switch between Windowed, Borderless, and Fullscreen. Select **Keybinds** to change the gameplay controls listed below. Display mode and keybinds are saved for the next launch.
 
 | Action | Control |
 | --- | --- |
@@ -30,14 +30,14 @@ In Settings, select **Display** to switch between Windowed, Borderless, and Full
 | Submit | Enter |
 | Undo | Ctrl+Z while drawing |
 | Clear | R while drawing |
-| Drawing guide or answer hint | H |
-| Kanji journal | Tab during play |
-| Safe drawing practice | Tab while walking, then Practice (Q) on the Kanji tab |
+| Replay kanji drawing guide | H |
+| Kanji journal | Open Glossarium from Pause (or press Tab while paused) |
+| Safe drawing practice | Pause while walking, open Glossarium, then select Practice (Q) on the Kanji tab |
 | Pause / close overlay | Escape |
 | Next cinematic panel / skip | Enter / S |
 | Continue or retry | Enter on the outcome screen |
 
-Drawing has no timer. Strict mode checks lesson stroke order and direction. Master, SFX and BGM volume persist between sessions. Save files are local to the user, under `%LOCALAPPDATA%\INKSLAYER\saves` on Windows.
+The guide draws the kanji once when a handwriting prompt starts. Press Help to replay it. Drawing has no timer. Strict mode checks lesson stroke order and direction. Master, SFX and BGM volume persist between sessions. Save files are local to the user, under `%LOCALAPPDATA%\INKSLAYER\saves` on Windows.
 
 ## Build and test
 

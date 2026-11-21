@@ -8,10 +8,13 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.utils.ScreenUtils;
 import com.yogiiefe.inkslayer.audio.GameAudio.Channel;
 import com.yogiiefe.inkslayer.recognition.InkPoint;
+import com.yogiiefe.inkslayer.screens.KeyBindings.Action;
 import com.yogiiefe.inkslayer.world.CampaignRun;
 import com.yogiiefe.inkslayer.world.CampaignRun.Phase;
 import java.time.Instant;
@@ -20,10 +23,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static com.yogiiefe.inkslayer.screens.GameScreen.*;
+import static com.yogiiefe.inkslayer.screens.PixelArtViewport.*;
 
 /** Draws the original pixel-art arena and the campaign screens. */
 final class ScreenView implements Disposable {
     private static final Color INK = Color.valueOf("121212"), PAPER = Color.valueOf("ececec");
+    private static final Color BACKDROP = new Color(0.035f, 0.035f, 0.035f, 1);
     private static final Color MUTED = Color.valueOf("b1b1b1"), ACCENT = Color.valueOf("cccccc");
     private static final Color PINK = Color.valueOf("909090"), PANEL = Color.valueOf("1b1b1b"), LINE = Color.valueOf("525252");
     private static final Color[] STAGE = colors("131313", "1d1d1d", "191919", "171717");
@@ -31,20 +36,21 @@ final class ScreenView implements Disposable {
 
     private final GameScreen g;
     private final SpriteBatch batch = new SpriteBatch();
+    private final FrameBuffer pixelArt = new FrameBuffer(Pixmap.Format.RGBA8888, ART_WIDTH, ART_HEIGHT, false);
     private final ActorArt art = new ActorArt();
     private final Texture pixel;
     private final BitmapFont small, body, large, quizFont;
-    private final TitleMenu titleMenu;
+    private final TitleMenu titleMenu = new TitleMenu();
     private final GlyphLayout layout = new GlyphLayout();
 
     ScreenView(GameScreen screen) {
         g = screen;
+        pixelArt.getColorBufferTexture().setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
         var pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
         pixmap.fill();
         pixel = new Texture(pixmap);
         pixmap.dispose();
-        titleMenu = new TitleMenu(batch, pixel);
         var generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/DotGothic16-Regular.ttf"));
         try {
             var chars = new StringBuilder(FreeTypeFontGenerator.DEFAULT_CHARS).append("←→×");
@@ -79,14 +85,31 @@ final class ScreenView implements Disposable {
 
     void render() {
         batch.setProjectionMatrix(g.viewport.getCamera().combined);
+        boolean hasArt = g.mode == Mode.TITLE || g.mode == Mode.GAME || g.mode == Mode.STORY
+            || (g.mode == Mode.CINEMATIC && g.ending);
+        if (hasArt) renderPixelArt();
+
+        g.viewport.apply();
         batch.begin();
+        if (hasArt) {
+            batch.setColor(Color.WHITE);
+            batch.disableBlending();
+            // OpenGL framebuffer textures have their origin at the bottom.
+            batch.draw(pixelArt.getColorBufferTexture(), 0, 0, UI_WIDTH, UI_HEIGHT,
+                0, 0, ART_WIDTH, ART_HEIGHT, false, true);
+            batch.enableBlending();
+        } else {
+            box(0, 0, UI_WIDTH, UI_HEIGHT, BACKDROP);
+        }
         switch (g.mode) {
-            case TITLE -> titleMenu.draw(large, small, g.titleSelection, g.titleHover, g.elapsed);
+            case TITLE -> {}
+            case CHAPTER_SELECT -> chapterSelect();
             case SLOTS -> slots();
             case SETTINGS -> settings();
+            case KEYBINDS -> keybinds();
             case CINEMATIC -> cinematic();
-            case GAME -> arena();
-            case STORY -> { arena(); story(); }
+            case GAME -> arenaUi();
+            case STORY -> { arenaUi(); story(); }
             case PAUSE -> pause();
             case JOURNAL -> journal();
             case PRACTICE -> practice();
@@ -94,54 +117,88 @@ final class ScreenView implements Disposable {
         batch.end();
     }
 
-    private void arena() {
+    private void renderPixelArt() {
+        pixelArt.begin();
+        if (g.mode == Mode.TITLE) ScreenUtils.clear(0, 0, 0, 1);
+        batch.begin();
+        if (g.mode == Mode.TITLE) titleMenu.draw(batch, g.titleSelection, g.titleHover, g.elapsed - g.titleHoverAt);
+        else if (g.mode == Mode.CINEMATIC) endingArt();
+        else arenaArt();
+        batch.end();
+        pixelArt.end();
+    }
+
+    private void arenaArt() {
+        var run = g.run;
+        box(0, 0, UI_WIDTH, UI_HEIGHT, STAGE[g.tutorial ? 0 : run.stage]);
+        box(0, 0, UI_WIDTH, CANVAS_TOP, Color.WHITE);
+        box(0, CANVAS_TOP - ART_PIXEL, UI_WIDTH, ART_PIXEL, LINE);
         if (g.tutorial) {
-            tutorial();
+            tutorialArt();
             return;
         }
-        var run = g.run;
-        boolean walk = run.phase == Phase.WALK;
-        box(0, 0, 1280, 720, STAGE[run.stage]);
-        box(0, 0, 1280, CANVAS_TOP, Color.WHITE);
-        box(0, CANVAS_TOP - 2, 1280, 2, LINE);
-        arenaControls();
-        if (walk) {
-            float scroll = (float) Math.max(0, run.x - 215) * 2;
-            districtProp(655 - scroll * 0.55f);
+        if (run.phase == Phase.WALK) {
+            float scroll = walkScroll();
+            districtProp(districtLeft(scroll));
             for (int i = 0; i < 24; i++) {
                 float x = i * 64 - scroll % 64;
-                box(x, CANVAS_TOP - 10, 25, 2, LINE);
+                box(x, CANVAS_TOP - 12, 25, ART_PIXEL, LINE);
             }
-            art.player(batch, (float) run.x * 2 - scroll - 36, CANVAS_TOP, 3, run.facing, walkingPose());
-            float enemyX = 2 * ((float) CampaignRun.ENCOUNTER_X + 145) - scroll;
-            drawEnemy(enemyX);
-            center(quizFont, g.content.stages.get(run.stage).name(), 640, 649, PAPER);
-            center(small, "Encounter " + (run.encounter + 1) + " / 10", 640, 598, MUTED);
-            center(small, "A / D or arrow keys to walk", 640, 137, INK);
-            if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 50, PINK);
+            art.player(batch, (float) run.x * 2 - scroll + 60, CANVAS_TOP, run.facing, walkingPose());
+            drawEnemy(2 * ((float) CampaignRun.ENCOUNTER_X + 145) - scroll);
             return;
         }
 
-        art.player(batch, 155, CANVAS_TOP, 3, 1, 0);
+        art.player(batch, 251, CANVAS_TOP, 1, 0);
         if (run.phase != Phase.WON) drawEnemy(846);
         if (g.effectTime > 0) spellEffect();
-        if (g.mode == Mode.STORY && g.story == StoryBeat.FIRST_MASK) {
-            art.unmasked(batch, 846, CANVAS_TOP);
+        if (maskReveal()) art.unmasked(batch, 846, CANVAS_TOP);
+    }
+
+    private void arenaUi() {
+        if (g.tutorial) {
+            tutorialUi();
+            return;
+        }
+        var run = g.run;
+        if (run.phase == Phase.WALK) {
+            districtLabel(districtLeft(walkScroll()));
+            center(quizFont, g.content.stages.get(run.stage).name(), 640, 649, PAPER);
+            center(small, "Encounter " + (run.encounter + 1) + " / 10", 640, 598, MUTED);
+            center(small, movementKeys() + " to walk", 640, 565, PAPER);
+            if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 540, PAPER);
+            return;
+        }
+
+        if (maskReveal()) {
             center(small, "PUNISHMENT RECORD  #013", 956, 576, PAPER);
         } else if (run.phase == Phase.WON || run.phase == Phase.LOST) outcome();
         else drawArea();
     }
 
-    private void arenaControls() {
-        button("Glossarium", 24, 646, 172, 46, false);
-        button("Settings", 208, 646, 132, 46, false);
+    private boolean maskReveal() {
+        return g.mode == Mode.STORY && g.story == StoryBeat.FIRST_MASK;
     }
 
-    private void districtProp(float x) {
-        int left = Math.round(x);
+    private float walkScroll() {
+        return (float) Math.max(0, g.run.x - 215) * 2;
+    }
+
+    private int districtLeft(float scroll) {
+        return Math.round((655 - scroll * 0.55f) / ART_PIXEL) * ART_PIXEL;
+    }
+
+    private String movementKeys() {
+        return g.bindings.label(Action.LEFT) + "   /   " + g.bindings.label(Action.RIGHT);
+    }
+
+    private void districtProp(int left) {
         box(left, 260, 10, 144, LINE);
         box(left - 52, 355, 230, 84, LINE);
         box(left - 48, 359, 222, 76, PANEL);
+    }
+
+    private void districtLabel(int left) {
         String label = switch (g.run.stage) {
             case 0 -> "INSPECTION OPEN";
             case 1 -> "RESIDENCE SEALED";
@@ -153,23 +210,22 @@ final class ScreenView implements Disposable {
             center(small, "Record #013", left + 62, 382, MUTED);
     }
 
-    private void tutorial() {
-        box(0, 0, 1280, 720, STAGE[0]);
-        box(0, 0, 1280, CANVAS_TOP, Color.WHITE);
-        box(0, CANVAS_TOP - 2, 1280, 2, LINE);
+    private void tutorialArt() {
         door(86, false);
         door(478, true);
-        float x = (float) g.run.x * 1.25f + 104;
-        art.player(batch, x, CANVAS_TOP, 3, g.run.facing, g.run.phase == Phase.WALK ? walkingPose() : 0);
+        float centerX = (float) g.run.x * 1.25f + 200;
+        art.player(batch, centerX, CANVAS_TOP, g.run.facing, g.run.phase == Phase.WALK ? walkingPose() : 0);
         box(1045, 260, 112, 218, LINE);
         box(1056, 260, 90, 206, PANEL);
         for (int i = 0; i < 5; i++) box(1058, 276 + 38 * i, 86, 4, MUTED);
         if (g.revealed()) box(1063, 261, 76, 116, INK);
-        arenaControls();
+    }
+
+    private void tutorialUi() {
         if (g.run.phase == Phase.WALK) {
             center(quizFont, "The Unchecked Door", 640, 626, PAPER);
             center(small, "Your door is still unchecked. Walk right to the water gate.", 640, 578, PAPER);
-            center(small, "D / Right Arrow", 640, 105, INK);
+            center(small, g.bindings.label(Action.RIGHT), 640, 551, PAPER);
         } else if (g.run.phase == Phase.WON) {
             panel(380, 278, 520, 238);
             center(large, "Gate open", 640, 470, PAPER);
@@ -254,18 +310,27 @@ final class ScreenView implements Disposable {
             var tiles = g.tiles();
             for (int i = 0; i < tiles.size(); i++)
                 button(tiles.get(i), tileX(i, tiles.size()), 80, 76, 58, i == g.tileSelection, quizFont);
-            center(small, g.feedback.isEmpty() ? "Click tiles or use arrows + Space   /   Enter submit   /   Backspace undo" : g.feedback, 640, 44, INK);
+            center(small, g.feedback.isEmpty() ? "Click tiles or use " + movementKeys() + " + Space   /   "
+                + g.bindings.label(Action.SUBMIT) + " submit   /   Backspace undo" : g.feedback, 640, 44, INK);
         } else {
-            String guide = g.guideGlyph();
-            if (guide != null) template(guide, GUIDE_X, GUIDE_Y, GUIDE_SIZE);
+            if (g.guideGlyph != null) previewGuide();
             for (var path : g.drawing.snapshot()) brush(path);
             brush(g.drawing.active());
-            boolean empty = g.drawing.count() == 0 && !g.drawing.isActive();
             String prompt = g.revealed() && !practice ? "Correct!" : g.feedback;
-            if (prompt.isEmpty() && empty)
-                prompt = (guide == null ? "Draw Kanji" : "Trace the strokes")
-                    + "   /   Enter submit   /   Ctrl+Z undo   /   R clear   /   H guide";
-            if (!prompt.isEmpty()) center(small, prompt, 640, 35, INK);
+            if (!prompt.isEmpty()) {
+                box(260, 272, 760, 38, INK);
+                center(small, prompt, 640, 298, PAPER);
+            }
+        }
+    }
+
+    private void previewGuide() {
+        var strokes = g.templates.get(g.guideGlyph);
+        int active = (int) g.guideProgress;
+        for (int index = 0; index <= active; index++) {
+            var path = strokes.get(index);
+            int count = index == active ? 1 + (int) ((g.guideProgress - active) * path.size()) : path.size();
+            stroke(path.subList(0, count), GUIDE_X, GUIDE_Y + GUIDE_SIZE, GUIDE_SIZE / 109f, LINE, 3);
         }
     }
 
@@ -308,6 +373,16 @@ final class ScreenView implements Disposable {
         if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 303, PINK);
     }
 
+    private void chapterSelect() {
+        panel(350, 101, 580, 518);
+        center(large, "Choose a chapter", 640, 576, PAPER);
+        for (int chapter = 0; chapter < g.content.stages.size(); chapter++) {
+            String label = "Chapter " + (chapter + 1) + "  /  " + g.content.stages.get(chapter).name();
+            button(label, CHAPTER_X, chapterY(chapter), CHAPTER_WIDTH, CHAPTER_HEIGHT, g.chapterSelection == chapter);
+        }
+        button("Back", CHAPTER_BACK_X, CHAPTER_BACK_Y, CHAPTER_BACK_WIDTH, CHAPTER_BACK_HEIGHT, false);
+    }
+
     private void slots() {
         panel(292, 90, 696, 530);
         center(large, "Save Files", 640, 574, PAPER);
@@ -325,7 +400,7 @@ final class ScreenView implements Disposable {
             if (slot.loadable()) {
                 var progress = slot.progress();
                 long minutes = progress.playSeconds() / 60;
-                text(small, progress.battlesWon() + "/40 battles    " + minutes + " min    "
+                text(small, "Played " + minutes + " min    "
                     + SAVE_DATE.format(Instant.ofEpochMilli(progress.savedAt())) + (slot.recovered() ? "    Backup" : ""),
                     340, y + 26, MUTED);
             }
@@ -350,7 +425,7 @@ final class ScreenView implements Disposable {
         button("Display: " + g.displayMode.label, 490, 473, 300, 44, g.setting == 3);
         String[] names = {"Master", "SFX", "BGM"};
         for (int i = 0; i < names.length; i++) {
-            int y = 406 - i * 76;
+            int y = volumeY(i);
             int value = g.audio.volume(Channel.values()[i]);
             text(body, names[i], 372, y + 18, g.setting == i ? ACCENT : PAPER);
             box(496, y, 320, 8, LINE);
@@ -358,10 +433,26 @@ final class ScreenView implements Disposable {
             box(491 + value * 3.2f, y - 5, 10, 18, PAPER);
             right(body, value + "%", 904, y + 18, PAPER);
         }
+        button("Keybinds", 490, 250, 300, 40, g.setting == 4);
         button(g.strict ? "Stroke order: Strict" : "Stroke order: Coaching", 490, 204, 300, 40, false);
         center(small, g.settingsMessage.isEmpty() ? "Use the mouse or arrow keys to change settings" : g.settingsMessage,
             640, 126, g.settingsMessage.isEmpty() ? MUTED : PAPER);
         button("Back", 490, 136, 300, 42, true);
+    }
+
+    private void keybinds() {
+        panel(338, 104, 604, 513);
+        center(large, "Keybinds", 640, 562, PAPER);
+        for (Action action : Action.values()) {
+            int y = keybindY(action);
+            box(KEYBIND_X, y, KEYBIND_WIDTH, KEYBIND_HEIGHT, g.selectedBinding == action ? LINE : PANEL);
+            text(body, action.label, KEYBIND_X + 16, y + 28, PAPER);
+            right(body, g.bindingKey && g.selectedBinding == action ? "Press a key" : g.bindings.label(action),
+                KEYBIND_X + KEYBIND_WIDTH - 16, y + 28, PAPER);
+        }
+        String instruction = g.bindingKey ? "Press a key, or Esc to cancel." : "Select a control to change its key.";
+        center(small, g.bindingMessage.isEmpty() ? instruction : g.bindingMessage, 640, 194, MUTED);
+        button("Back", 490, 135, 300, 42, true);
     }
 
     private void pause() {
@@ -369,7 +460,8 @@ final class ScreenView implements Disposable {
         center(large, "Paused", 640, 567, PAPER);
         center(body, g.tutorial ? "The Unchecked Door" : g.content.stages.get(g.run.stage).name()
             + "  /  Encounter " + (g.run.encounter + 1) + " of 10", 640, 510, PAPER);
-        center(small, "Esc resume   /   Enter submit   /   H guide", 640, 471, MUTED);
+        center(small, g.bindings.label(Action.SUBMIT) + " submit   /   " + g.bindings.label(Action.HELP) + " guide   /   "
+            + g.bindings.label(Action.CLEAR) + " clear   /   " + g.bindings.label(Action.UNDO) + " undo", 640, 471, MUTED);
         button("Resume", 460, 366, 360, 46, true);
         button("Glossarium", 460, 307, 360, 46, false);
         button("Settings", 460, 248, 360, 46, false);
@@ -423,17 +515,25 @@ final class ScreenView implements Disposable {
     }
 
     private void cinematic() {
-        box(0, 0, 1280, 720, STAGE[g.ending ? 3 : 0]);
+        String page = (g.panel + 1) + " / " + g.panels().size();
         if (!g.ending) {
-            center(small, "Prologue   " + (g.panel + 1) + " / " + g.panels().size(), 640, 489, MUTED);
+            box(0, 0, UI_WIDTH, UI_HEIGHT, STAGE[g.run.stage]);
+            center(small, "Chapter " + (g.run.stage + 1) + "  /  " + g.content.stages.get(g.run.stage).name()
+                + "     " + page, 640, 489, MUTED);
             write(large, g.panels().get(g.panel), 172, 416, 936, Align.center, PAPER);
-            button("Next", 300, 50, 190, 44, false);
-            button("Skip", 790, 50, 190, 44, false);
-            if (g.slot < 0) center(small, "All slots are full. This run is unsaved.", 640, 34, PAPER);
-            else if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 34, PAPER);
-            return;
+        } else {
+            box(0, 0, UI_WIDTH, 220, INK);
+            center(small, "Epilogue   " + page, 640, 197, ACCENT);
+            write(body, g.panels().get(g.panel), 270, 164, 740, Align.center, PAPER);
         }
-        box(0, 220, 1280, 2, LINE);
+        button("Skip", SKIP_X, SKIP_Y, SKIP_WIDTH, SKIP_HEIGHT, false);
+        if (g.slot < 0) center(small, "All slots are full. This run is unsaved.", 640, 34, PINK);
+        else if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 34, PINK);
+    }
+
+    private void endingArt() {
+        box(0, 0, UI_WIDTH, UI_HEIGHT, STAGE[3]);
+        box(0, 220, UI_WIDTH, ART_PIXEL, LINE);
         float drift = (float) Math.min(90, g.panelTime * 10);
         for (int i = 0; i < 7; i++) {
             int height = 70 + (i * 41 + g.panel * 31) % 210;
@@ -441,20 +541,13 @@ final class ScreenView implements Disposable {
             box(x, 221, 164, height, PANEL);
             box(x + 18, 221 + height - 24, 128, 6, LINE);
         }
-        art.player(batch, 156 + 32 * g.panel + drift, 221, 4, 1, 0);
-        if (g.panel >= 2 && (!g.ending || g.panel < 4)) {
+        art.player(batch, 284 + 32 * g.panel + drift, 221, 1, 0);
+        if (g.panel >= 2 && g.panel < 4) {
             box(837, 221, 175, 242, LINE);
             box(860, 452, 134, 43, LINE);
             box(832, 491, 188, 16, PINK);
             box(873, 474, 90, 6, PAPER);
         }
-        box(0, 0, 1280, 220, INK);
-        center(small, (g.ending ? "Epilogue" : "Prologue") + "   " + (g.panel + 1) + "/" + g.panels().size(), 640, 197, ACCENT);
-        write(body, g.panels().get(g.panel), 270, 164, 740, Align.center, PAPER);
-        button("Next", 300, 50, 190, 44, false);
-        button("Skip", 790, 50, 190, 44, false);
-        if (g.slot < 0) center(small, "All slots are full. This run is unsaved.", 640, 34, PINK);
-        else if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 34, PINK);
     }
 
     private void template(String id, float x, float y, float size) {
@@ -532,6 +625,8 @@ final class ScreenView implements Disposable {
         body.dispose();
         small.dispose();
         art.dispose();
+        titleMenu.dispose();
+        pixelArt.dispose();
         pixel.dispose();
         batch.dispose();
     }

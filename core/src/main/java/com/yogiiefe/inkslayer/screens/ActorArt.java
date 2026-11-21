@@ -6,9 +6,12 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.utils.Disposable;
 
+import static com.yogiiefe.inkslayer.screens.PixelArtViewport.ART_PIXEL;
+
 /** Original grayscale sprites rasterized onto a 64-pixel grid at startup. */
 final class ActorArt implements Disposable {
     private static final int SIZE = 64;
+    private static final int DRAW_SIZE = SIZE * ART_PIXEL;
     private static final Color[] INK = {
         Color.valueOf("282828"), Color.valueOf("464646"), Color.valueOf("727272"),
         Color.valueOf("a0a0a0"), Color.valueOf("d0d0d0"), Color.valueOf("f0f0f0")
@@ -23,19 +26,24 @@ final class ActorArt implements Disposable {
                 enemy[stage][index] = creature(stage, index);
     }
 
-    void player(SpriteBatch batch, float x, float floor, float scale, int facing, int pose) {
+    void player(SpriteBatch batch, float centerX, float floor, int facing, int pose) {
         batch.setColor(Color.WHITE);
-        batch.draw(traveler[pose], Math.round(x), floor, SIZE * scale, SIZE * scale, 0, 0, SIZE, SIZE, facing < 0, false);
+        batch.draw(traveler[pose], snap(centerX - DRAW_SIZE / 2f), snap(floor), DRAW_SIZE, DRAW_SIZE,
+            0, 0, SIZE, SIZE, facing < 0, false);
     }
 
     void enemy(SpriteBatch batch, float x, float floor, int stage, int index, int lift) {
         batch.setColor(Color.WHITE);
-        batch.draw(enemy[stage][index], Math.round(x), floor + lift, 256, 256);
+        batch.draw(enemy[stage][index], snap(x), snap(floor + lift), DRAW_SIZE, DRAW_SIZE);
     }
 
     void unmasked(SpriteBatch batch, float x, float floor) {
         batch.setColor(Color.WHITE);
-        batch.draw(unmasked, x, floor, 256, 256);
+        batch.draw(unmasked, snap(x), snap(floor), DRAW_SIZE, DRAW_SIZE);
+    }
+
+    private static int snap(float position) {
+        return Math.round(position / ART_PIXEL) * ART_PIXEL;
     }
 
     private static Texture unmaskedSprite() {

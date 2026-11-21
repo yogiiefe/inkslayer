@@ -4,7 +4,7 @@
 
 - `Main` loads and cross-checks `assets/data/campaign.json` and the KanjiVG-derived templates before creating the screen.
 - `CampaignContent` validates encounter counts, lesson references, unlock order and Kotoba’s three rounds. `CampaignRun` owns fixed-step walking, offensive damage, the announced counter window and encounter progression. The earlier `World` and `GameContent` remain available for the one-encounter regression suite.
-- `GameScreen` routes menus, lesson prompts, spell input, the journal, safe practice and cinematic panels. `ScreenView` draws the 1280×720 UI, stage themes and spell feedback with the same viewport used for mouse input.
+- `GameScreen` routes menus, lesson prompts, spell input, the journal, safe practice and cinematic panels. `ScreenView` renders the title, arena and epilogue artwork to a 320×180 framebuffer and presents it with nearest filtering at the largest whole-pixel scale that fits. The 1280×720 UI and drawing canvas render directly to the same centered viewport used for mouse input.
 - `KanjiRecognizer` compares supported shapes of equal stroke count and rejects ambiguous and unavailable matches. Shape, order and direction stay separate. Learning saves record assisted and independent successes, errors and last review.
 - `SaveStore` writes three versioned local slots with checkpoint backup. `GameAudio` owns looping music, SFX and category volume. The desktop launcher configures audio preferences beside the save directory.
 - `DesktopSmoke` exercises the packaged campaign using scripted mouse strokes through the production input processor. Domain tests cover combat and persistence without graphics.

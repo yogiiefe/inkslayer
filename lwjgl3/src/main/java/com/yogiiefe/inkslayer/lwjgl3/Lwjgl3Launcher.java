@@ -4,6 +4,7 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 import com.badlogic.gdx.Files;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.glutils.HdpiMode;
 import com.yogiiefe.inkslayer.Main;
 import com.yogiiefe.inkslayer.save.SaveStore;
 import com.yogiiefe.inkslayer.screens.DisplayMode;
@@ -60,6 +61,8 @@ public class Lwjgl3Launcher {
     private static Lwjgl3ApplicationConfiguration getDefaultConfiguration() {
         Lwjgl3ApplicationConfiguration configuration = new Lwjgl3ApplicationConfiguration();
         configuration.setTitle("INKSLAYER!");
+        // Rendering and pointer events use the same physical-pixel coordinates.
+        configuration.setHdpiMode(HdpiMode.Pixels);
         // Keep the settings file beside the save directory, independently of the working directory.
         configuration.setPreferencesConfig(SaveStore.defaultDirectory().toAbsolutePath()
             .resolveSibling("settings").toString().replace('\\', '/') + "/", Files.FileType.Absolute);

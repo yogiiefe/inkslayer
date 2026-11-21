@@ -30,6 +30,13 @@
   "stages": [
     {
       "name": "Elements",
+      "opening": [
+        "In this world!",
+        "Everyone must answer in Japanese. Mr. Kotoba's inspectors go from door to door, and anyone who fails is condemned.",
+        "You can't speak Japanese. When the inspector reaches your street, he walks straight past your door.",
+        "A clerk left your name off the list. For once, a mistake in the paperwork saves a life.",
+        "At the water gate, someone has left a note and a pen. The gate won't listen to you either. It might listen to the ink."
+      ],
       "encounters": [
         {"id":"s1-01","name":"Ember","element":"FIRE","attacks":["FIRE"],"health":30,"damage":6,"lessonId":"水"},
         {"id":"s1-02","name":"Iron","element":"METAL","attacks":["METAL"],"health":32,"damage":6,"lessonId":"火"},
@@ -45,6 +52,12 @@
     },
     {
       "name": "Pets",
+      "opening": [
+        "Past the water gate, every inspector wears a number. The same numbers turn up beside the names on Kotoba's punishment list.",
+        "In the sealed district, a dog waits beside a door that hasn't opened in days. Its bowl still has its owner's name.",
+        "An examiner in a mask reads the order aloud. When the dog barks, the examiner stops halfway through the sentence.",
+        "You follow the examiner. Whatever the mask is hiding, the dog already knows."
+      ],
       "encounters": [
         {"id":"s2-01","name":"Ember Hound","element":"FIRE","attacks":["FIRE","EARTH"],"health":40,"damage":7,"lessonId":"犬"},
         {"id":"s2-02","name":"Moss Cat","element":"WOOD","attacks":["WOOD","WATER"],"health":42,"damage":7,"lessonId":"猫"},
@@ -60,6 +73,12 @@
     },
     {
       "name": "Weather",
+      "opening": [
+        "The examiners used to live behind the doors they now guard. In the sealed district, a dog still follows one of them home.",
+        "The road uphill leads to another inspection queue. Rain soaks the ledgers, but the order to stay in line is printed on tin.",
+        "The shelter has room for everyone. The examiner at the door has a key and an order to keep it locked.",
+        "If an examiner can still remember a home, maybe one can still choose to open a door. You head for the shelter."
+      ],
       "encounters": [
         {"id":"s3-01","name":"Rain Wisp","element":"WATER","attacks":["WATER","METAL"],"health":42,"damage":8,"lessonId":"雨"},
         {"id":"s3-02","name":"Gale Wisp","element":"WOOD","attacks":["WOOD","EARTH"],"health":44,"damage":8,"lessonId":"風"},
@@ -75,6 +94,12 @@
     },
     {
       "name": "Food",
+      "opening": [
+        "On the storm road, an examiner opened the shelter. Inside, the people told you who was checking the ration line in person.",
+        "Steam rolls out of the kitchens. There are meals waiting behind the desk, but everyone has to answer before they get a plate.",
+        "At the end of the line, Mr. Kotoba keeps one hand on the ledger. Nobody gets close enough to read what's inside.",
+        "You join the line with the pen from the water gate. This time, you want the inspector to see you coming."
+      ],
       "encounters": [
         {"id":"s4-01","name":"Examiner I","element":"FIRE","attacks":["FIRE","WATER"],"health":44,"damage":8,"lessonId":"水"},
         {"id":"s4-02","name":"Examiner II","element":"METAL","attacks":["METAL","EARTH"],"health":46,"damage":8,"lessonId":"金"},
@@ -93,14 +118,6 @@
     {"characters":["水","火","金","木","土"],"attacks":["FIRE","WATER"]},
     {"characters":["犬","猫","鳥","魚","馬"],"attacks":["WOOD","EARTH"]},
     {"characters":["雨","風","雪","雲","空"],"attacks":["METAL"]}
-  ],
-  "opening": [
-    "At dawn the city speaks in one voice. By decree, every resident must answer in Japanese.",
-    "Mr. Kotoba's inspectors carry ledgers from door to door. Anyone who fails the inspection is condemned.",
-    "The inspector passes your door. A clerk left one name off the list: yours.",
-    "At the gate, a scrap of paper reads 水. You trace the four strokes. Water spills from the ink.",
-    "Past the gate, the inspectors guard the animal district and the road through the storm.",
-    "Their ledgers lead to Mr. Kotoba. You pocket the pen and set out for the first gate."
   ],
   "ending": [
     "Mr. Kotoba turns the last page. His own exam has been turned against him.",
