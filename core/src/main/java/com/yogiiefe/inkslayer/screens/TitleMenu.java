@@ -49,21 +49,28 @@ final class TitleMenu implements Disposable {
         drawRegion(batch, logo, 11, 27, 175, 38, 9, 127);
         drawRegion(batch, layout, 9, 168, 59, 3, 9, 168);
         for (Option option : Option.OPTIONS) {
-            float shade = option == hovered ? 1f - 0.4f * (float) Math.min(1, hoverAge / DIM_SECONDS) : 1f;
+            float shade = option == hovered ? hoverShade(hoverAge) : 1f;
             batch.setColor(shade, shade, shade, 1f);
             drawRegion(batch, layout, Option.LABEL_X, option.top, Option.LABEL_WIDTH, Option.LABEL_HEIGHT,
                 Option.LABEL_X, option.top);
         }
         batch.setColor(Color.WHITE);
         Option active = hovered == null ? selected : hovered;
-        int offset = hovered == null ? 0
-            : (int) Math.round(ARROW_TRAVEL * (1 - Math.cos(hoverAge * 2 * Math.PI / ARROW_PERIOD)) / 2);
+        int offset = hovered == null ? 0 : hoverArrowOffset(hoverAge);
         drawRegion(batch, layout, ARROW_X, Option.NEW.arrowTop(), ARROW_WIDTH, ARROW_HEIGHT,
             ARROW_X - offset, active.arrowTop());
     }
 
-    private static void drawRegion(SpriteBatch batch, Texture texture, int sourceX, int sourceY,
-                                   int width, int height, int x, int top) {
+    static float hoverShade(double hoverAge) {
+        return 1f - 0.4f * (float) Math.min(1, hoverAge / DIM_SECONDS);
+    }
+
+    static int hoverArrowOffset(double hoverAge) {
+        return (int) Math.round(ARROW_TRAVEL * (1 - Math.cos(hoverAge * 2 * Math.PI / ARROW_PERIOD)) / 2);
+    }
+
+    static void drawRegion(SpriteBatch batch, Texture texture, int sourceX, int sourceY,
+                           int width, int height, int x, int top) {
         batch.draw(texture, x * ART_PIXEL, (ART_HEIGHT - top - height) * ART_PIXEL,
             width * ART_PIXEL, height * ART_PIXEL, sourceX, sourceY, width, height, false, false);
     }

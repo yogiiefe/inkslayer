@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 import static com.yogiiefe.inkslayer.screens.GameScreen.*;
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.*;
@@ -39,13 +40,16 @@ final class ScreenView implements Disposable {
     private final FrameBuffer pixelArt = new FrameBuffer(Pixmap.Format.RGBA8888, ART_WIDTH, ART_HEIGHT, false);
     private final ActorArt art = new ActorArt();
     private final Texture pixel;
+    private final Texture cinematicSkip = new Texture(Gdx.files.internal("SkipAnim.png"));
     private final BitmapFont small, body, large, quizFont;
+    private final BitmapFont cinematicFont;
     private final TitleMenu titleMenu = new TitleMenu();
     private final GlyphLayout layout = new GlyphLayout();
 
     ScreenView(GameScreen screen) {
         g = screen;
         pixelArt.getColorBufferTexture().setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        cinematicSkip.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
         var pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
         pixmap.fill();
@@ -64,6 +68,7 @@ final class ScreenView implements Disposable {
             body = font(generator, 20, characters);
             large = font(generator, 48, characters);
             quizFont = font(generator, 32, characters);
+            cinematicFont = cinematicFont(generator, characters);
         } finally {
             generator.dispose();
         }
@@ -83,9 +88,40 @@ final class ScreenView implements Disposable {
         return generator.generateFont(p);
     }
 
+    private BitmapFont cinematicFont(FreeTypeFontGenerator generator, String characters) {
+        var font = new BitmapFont(Gdx.files.internal("fonts/cinematic.fnt"));
+        // Letters come directly from the supplied alphabet; supplement punctuation and Japanese glyphs.
+        StringBuilder supplement = new StringBuilder();
+        characters.chars().filter(c -> !font.getData().hasGlyph((char) c))
+            .forEach(c -> supplement.append((char) c));
+        var style = new FreeTypeFontGenerator.FreeTypeFontParameter();
+        style.size = 7;
+        style.mono = true;
+        style.characters = supplement.toString();
+        style.color = Color.valueOf("c9d1d1");
+        var fallback = generator.generateFont(style);
+        int pageOffset = font.getRegions().size;
+        font.getRegions().addAll(fallback.getRegions());
+        for (char character : supplement.toString().toCharArray()) {
+            var glyph = fallback.getData().getGlyph(character);
+            if (glyph == null) continue;
+            glyph.page += pageOffset;
+            glyph.yoffset += Math.round(fallback.getData().ascent);
+            font.getData().setGlyph(character, glyph);
+        }
+        font.getData().missingGlyph = font.getData().getGlyph('?');
+        // The cinematic font owns both texture pages after the transfer.
+        fallback.setOwnsTexture(false);
+        fallback.dispose();
+        font.getRegions().forEach(region -> region.getTexture().setFilter(
+            Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest));
+        font.getData().setScale(ART_PIXEL);
+        return font;
+    }
+
     void render() {
         batch.setProjectionMatrix(g.viewport.getCamera().combined);
-        boolean hasArt = g.mode == Mode.TITLE || g.mode == Mode.GAME || g.mode == Mode.STORY
+        boolean hasArt = g.mode == Mode.TITLE || g.mode == Mode.GAME
             || (g.mode == Mode.CINEMATIC && g.ending);
         if (hasArt) renderPixelArt();
 
@@ -109,7 +145,6 @@ final class ScreenView implements Disposable {
             case KEYBINDS -> keybinds();
             case CINEMATIC -> cinematic();
             case GAME -> arenaUi();
-            case STORY -> { arenaUi(); story(); }
             case PAUSE -> pause();
             case JOURNAL -> journal();
             case PRACTICE -> practice();
@@ -152,7 +187,6 @@ final class ScreenView implements Disposable {
         art.player(batch, 251, CANVAS_TOP, 1, 0);
         if (run.phase != Phase.WON) drawEnemy(846);
         if (g.effectTime > 0) spellEffect();
-        if (maskReveal()) art.unmasked(batch, 846, CANVAS_TOP);
     }
 
     private void arenaUi() {
@@ -170,14 +204,8 @@ final class ScreenView implements Disposable {
             return;
         }
 
-        if (maskReveal()) {
-            center(small, "PUNISHMENT RECORD  #013", 956, 576, PAPER);
-        } else if (run.phase == Phase.WON || run.phase == Phase.LOST) outcome();
+        if (run.phase == Phase.WON || run.phase == Phase.LOST) outcome();
         else drawArea();
-    }
-
-    private boolean maskReveal() {
-        return g.mode == Mode.STORY && g.story == StoryBeat.FIRST_MASK;
     }
 
     private float walkScroll() {
@@ -206,8 +234,6 @@ final class ScreenView implements Disposable {
             default -> "RATION QUEUE";
         };
         center(small, label, left + 62, 410, PAPER);
-        if (g.run.stage == 0 && g.run.encounter == 0)
-            center(small, "Record #013", left + 62, 382, MUTED);
     }
 
     private void tutorialArt() {
@@ -248,14 +274,6 @@ final class ScreenView implements Disposable {
             box(x + 58, 416, 16, 8, LINE);
         }
         box(x + 104, 329, 8, 8, MUTED);
-    }
-
-    private void story() {
-        panel(280, 61, 720, 173);
-        center(body, g.story.title, 640, 214, PAPER);
-        write(body, g.story.lines.get(g.storyLine), 326, 179, 628, Align.center, PAPER);
-        button("Skip (S)", 360, 75, 180, 44, false);
-        button("Next (Enter)", 740, 75, 180, 44, true);
     }
 
     private double lastWalkX = 110, walkDistance, lastWalkAt = -1;
@@ -515,26 +533,42 @@ final class ScreenView implements Disposable {
     }
 
     private void cinematic() {
-        String page = (g.panel + 1) + " / " + g.panels().size();
         if (!g.ending) {
-            box(0, 0, UI_WIDTH, UI_HEIGHT, STAGE[g.run.stage]);
-            center(small, "Chapter " + (g.run.stage + 1) + "  /  " + g.content.stages.get(g.run.stage).name()
-                + "     " + page, 640, 489, MUTED);
-            write(large, g.panels().get(g.panel), 172, 416, 936, Align.center, PAPER);
+            box(0, 0, UI_WIDTH, UI_HEIGHT, Color.BLACK);
         } else {
             box(0, 0, UI_WIDTH, 220, INK);
-            center(small, "Epilogue   " + page, 640, 197, ACCENT);
-            write(body, g.panels().get(g.panel), 270, 164, 740, Align.center, PAPER);
         }
-        button("Skip", SKIP_X, SKIP_Y, SKIP_WIDTH, SKIP_HEIGHT, false);
-        if (g.slot < 0) center(small, "All slots are full. This run is unsaved.", 640, 34, PINK);
-        else if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 34, PINK);
+        String text = g.panels().get(g.panel).toUpperCase(Locale.ROOT);
+        layout.setText(cinematicFont, text, Color.WHITE, 260 * ART_PIXEL, Align.center, true);
+        for (var run : layout.runs) run.x = Math.round(run.x / ART_PIXEL) * ART_PIXEL;
+        float textTop = (ART_HEIGHT - 77) * ART_PIXEL;
+        if (g.ending) box(24 * ART_PIXEL, textTop - layout.height - 3 * ART_PIXEL,
+            272 * ART_PIXEL, layout.height + 6 * ART_PIXEL, Color.BLACK);
+        var cache = cinematicFont.getCache();
+        // The sample line starts at row 77 of the supplied 320x180 layout.
+        cache.setText(layout, 30 * ART_PIXEL, textTop);
+        cache.setColors(Color.CLEAR);
+        int visible = Math.min(layout.glyphCount, g.cinematicVisibleCharacters());
+        if (visible > 0) cache.setColors(Color.WHITE, 0, visible);
+        cache.draw(batch);
+        boolean skipHovered = g.skipHoverAt >= 0;
+        double hoverAge = g.elapsed - g.skipHoverAt;
+        float shade = skipHovered ? TitleMenu.hoverShade(hoverAge) : 1f;
+        int arrowOffset = skipHovered ? TitleMenu.hoverArrowOffset(hoverAge) : 0;
+        batch.setColor(shade, shade, shade, 1f);
+        TitleMenu.drawRegion(batch, cinematicSkip, 298, 5, 18, 5, 298, 5);
+        batch.setColor(Color.WHITE);
+        // The sheet supplies the two endpoints; the shared menu motion adds the middle position.
+        int frame = arrowOffset == 2 ? 1 : 0;
+        TitleMenu.drawRegion(batch, cinematicSkip, 287 + 2 * frame, 4 + 10 * frame, 7, 7,
+            287 + arrowOffset, 4);
+        if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 34, PINK);
     }
 
     private void endingArt() {
         box(0, 0, UI_WIDTH, UI_HEIGHT, STAGE[3]);
         box(0, 220, UI_WIDTH, ART_PIXEL, LINE);
-        float drift = (float) Math.min(90, g.panelTime * 10);
+        float drift = (float) Math.min(90, (g.elapsed - g.panelStartedAt) * 10);
         for (int i = 0; i < 7; i++) {
             int height = 70 + (i * 41 + g.panel * 31) % 210;
             float x = i * 212 - drift;
@@ -624,10 +658,12 @@ final class ScreenView implements Disposable {
         quizFont.dispose();
         body.dispose();
         small.dispose();
+        cinematicFont.dispose();
         art.dispose();
         titleMenu.dispose();
         pixelArt.dispose();
         pixel.dispose();
+        cinematicSkip.dispose();
         batch.dispose();
     }
 }

@@ -19,6 +19,7 @@ final class DesktopSmoke {
     private boolean invalidChecked, reloaded, practiceChecked, firstBrushShown, glossaryShown, practiceShown, pauseShown;
     private boolean resizing;
     private boolean initialGuideShown;
+    private boolean skipSecondFrameShown;
 
     void frame(GameScreen g) {
         if (resizing) return;
@@ -73,28 +74,21 @@ final class DesktopSmoke {
             capture("chapter-select");
             key(Input.Keys.ENTER);
             require(g.mode == Mode.CINEMATIC && g.tutorial && g.panel == 0, "Elements starts its prologue");
-            require(g.panels().getFirst().equals("In this world!"), "Elements opening card");
+            require(g.panels().getFirst().equals("In this world"), "Elements opening card");
             key(Input.Keys.ENTER);
             key(Input.Keys.SPACE);
-            click(g, 395, 72);
-            require(g.mode == Mode.CINEMATIC && g.panel == 0, "old Next inputs must not advance a cinematic");
+            require(g.mode == Mode.CINEMATIC && g.panel == 0, "old Next keys must not advance a cinematic");
             return;
         }
         if (frames == 10) {
             capture("opening");
+            Vector2 skip = screen(g, SKIP_X + SKIP_WIDTH / 2f, SKIP_Y + SKIP_HEIGHT / 2f);
+            Gdx.input.getInputProcessor().mouseMoved(Math.round(skip.x), Math.round(skip.y));
             return;
         }
 
         switch (g.mode) {
             case GAME -> play(g);
-            case STORY -> {
-                if (g.story == StoryBeat.FIRST_MASK && g.storyLine == 0) {
-                    require(g.saveStore.inspect(0).progress().encounter() == 0, "checkpoint advanced before mask reveal");
-                    capture("mask-reveal");
-                    key(Input.Keys.ENTER);
-                    require(g.storyLine == 1, "mask dialogue did not advance");
-                } else key(Input.Keys.S);
-            }
             case PAUSE -> {
                 if (!pauseShown) { capture("pause"); pauseShown = true; }
                 key(practiceChecked ? Input.Keys.ESCAPE : Input.Keys.TAB);
@@ -118,11 +112,23 @@ final class DesktopSmoke {
                 }
                 require(g.ending && battles == 40, "ending before all 40 battles");
                 require(g.saveStore.inspect(0).progress().endingPending(), "missing ending checkpoint");
-                capture("ending");
+                int panel = g.panel;
+                if (!g.cinematicTextComplete) {
+                    click(g, 80, 580);
+                    require(g.mode == Mode.CINEMATIC && g.panel == panel && g.cinematicTextComplete,
+                        "first click reveals the epilogue sentence");
+                    return;
+                }
+                capture("ending-slide-" + (panel + 1));
+                if (panel + 1 < g.panels().size()) {
+                    click(g, 80, 580);
+                    require(g.mode == Mode.CINEMATIC && g.panel == panel + 1, "clicking the epilogue advances one card");
+                    return;
+                }
                 skipCinematic(g);
                 require(g.mode == GameScreen.Mode.TITLE && g.saveStore.inspect(0).progress().completed(), "ending did not save");
                 checkDirectChapterStarts(g);
-                Gdx.app.log("SMOKE", "PASS: chapter selection, automatic cinematic advance, Skip, chapter checkpoints, keybinds, guides, "
+                Gdx.app.log("SMOKE", "PASS: chapter selection, cinematic-only story, click-only cinematic advance, Skip, chapter checkpoints, keybinds, guides, "
                     + battles + " encounters, "
                     + questions + " accepted quiz answers, checkpoint reload and ending");
                 Gdx.app.exit();
@@ -134,16 +140,37 @@ final class DesktopSmoke {
     private void checkChapterOpening(GameScreen g) {
         int chapter = g.run.stage;
         require(g.run.encounter == 0 && chapter == battles / 10, "unexpected chapter opening");
-        if (chapter == 0) {
-            if (g.panel == 0) return;
-            require(g.panel == 1, "cinematic advances automatically by one card");
-            capture("opening-second-card");
+        if (chapter == 0 && g.panel == 0) {
+            if (frames == 20) capture("opening-typewriter");
+            if (!skipSecondFrameShown && g.skipHoverAt >= 0
+                && TitleMenu.hoverArrowOffset(g.elapsed - g.skipHoverAt) == 2) {
+                capture("skip-hover-frame-2");
+                skipSecondFrameShown = true;
+            }
+            if (g.elapsed - g.panelStartedAt < 5) return;
+            require(g.skipHoverAt >= 0, "cinematic Skip hover");
+            require(skipSecondFrameShown, "Skip must reach its second animation frame on hover");
+            capture("opening-skip-hover");
         } else {
-            var saved = g.saveStore.inspect(0).progress();
-            require(saved.stage() == chapter && saved.encounter() == 0, "chapter transition checkpoint");
-            capture("chapter-" + (chapter + 1) + "-opening");
+            if (chapter > 0) {
+                var saved = g.saveStore.inspect(0).progress();
+                require(saved.stage() == chapter && saved.encounter() == 0, "chapter transition checkpoint");
+            }
+            if (!g.cinematicTextComplete) {
+                int panel = g.panel;
+                click(g, 395, 72);
+                require(g.mode == Mode.CINEMATIC && g.panel == panel && g.cinematicTextComplete,
+                    "first click reveals the chapter sentence");
+                return;
+            }
         }
-        skipCinematic(g);
+        capture("chapter-" + (chapter + 1) + "-slide-" + (g.panel + 1));
+        int panel = g.panel;
+        click(g, 395, 72);
+        if (g.mode == Mode.CINEMATIC) {
+            require(g.panel == panel + 1, "click advances exactly one chapter slide");
+            return;
+        }
         require(g.mode == Mode.GAME && g.tutorial == (chapter == 0), "opening must enter the selected stage");
         if (chapter == 0) require(!g.saveStore.inspect(0).occupied(), "tutorial should precede first checkpoint");
     }
@@ -320,6 +347,8 @@ final class DesktopSmoke {
             case ATTACK, DEFEND -> throw new IllegalStateException("Legacy combat phase reached");
             case WON -> {
                 battles++;
+                require(g.saveStore.inspect(0).progress().battlesWon() == battles,
+                    "every victory must save its checkpoint before Continue");
                 if (battles == 10 || battles == 20 || battles == 30 || battles == 40) capture("stage-" + g.run.stage);
                 key(Input.Keys.ENTER);
             }

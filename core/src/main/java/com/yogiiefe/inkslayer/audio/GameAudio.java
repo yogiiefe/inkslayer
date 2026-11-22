@@ -11,16 +11,20 @@ import java.util.Locale;
 
 /** Owns music streaming, short effects and application-wide volume preferences. */
 public final class GameAudio implements Disposable {
-    public enum Track { MENU, STAGE1, STAGE2, STAGE3, STAGE4, BOSS, ENDING }
-    public enum Cue { UI, STROKE, ACCEPT, RETRY, WATER, FIRE, METAL, WOOD, EARTH, COUNTER, HIT, VICTORY, DEFEAT }
+    public enum Track { MENU, STAGE1, STAGE2, STAGE3, STAGE4, BOSS, STORY }
+    public enum Cue { UI, STROKE, ACCEPT, RETRY, VICTORY, SKIP }
     public enum Channel { MASTER, SFX, BGM }
 
+    private static final float STORY_FADE_SECONDS = 1f;
     private final Preferences preferences = Gdx.app.getPreferences("inkslayer-audio");
     private final EnumMap<Channel, Integer> levels = new EnumMap<>(Channel.class);
     private final EnumMap<Cue, Sound> sounds = new EnumMap<>(Cue.class);
     private final EnumMap<Cue, Long> voices = new EnumMap<>(Cue.class);
     private Track track;
+    private Track targetTrack;
     private Music music;
+    private float musicEnvelope = 1f;
+    private boolean fadingMusic;
     private boolean paused;
 
     public GameAudio() {
@@ -30,18 +34,47 @@ public final class GameAudio implements Disposable {
     }
 
     public void music(Track next) {
-        if (track == next) return;
+        if (targetTrack == next) return;
+        boolean shouldFade = next == Track.STORY || track == Track.STORY
+            || targetTrack == Track.STORY || fadingMusic;
+        targetTrack = next;
+        if (!shouldFade) {
+            startMusic(next, 1f);
+            fadingMusic = false;
+            return;
+        }
+        if (music == null) startMusic(next, 0f);
+        fadingMusic = music != null;
+    }
+
+    public void update(float delta) {
+        if (paused || !fadingMusic || !Float.isFinite(delta) || delta <= 0) return;
+        float direction = track == targetTrack ? 1f : -1f;
+        musicEnvelope = Math.clamp(musicEnvelope + direction * delta / STORY_FADE_SECONDS, 0f, 1f);
+        music.setVolume(gain(Channel.BGM) * musicEnvelope);
+        if (musicEnvelope == 0f && track != targetTrack) {
+            startMusic(targetTrack, 0f);
+            fadingMusic = music != null;
+        } else if (musicEnvelope == 1f) fadingMusic = false;
+    }
+
+    private void startMusic(Track next, float envelope) {
+        Music replacement = null;
+        if (next != null) {
+            String path = next == Track.STORY ? "audio/bgm/TEMPOREX - Numbers (Instrumental).mp3"
+                : "audio/bgm/" + key(next) + ".wav";
+            replacement = Gdx.audio.newMusic(Gdx.files.internal(path));
+            replacement.setLooping(true);
+            replacement.setVolume(gain(Channel.BGM) * envelope);
+        }
         if (music != null) {
             music.stop();
             music.dispose();
-            music = null;
         }
         track = next;
-        if (next == null) return;
-        music = Gdx.audio.newMusic(Gdx.files.internal("audio/bgm/" + key(next) + ".wav"));
-        music.setLooping(true);
-        music.setVolume(gain(Channel.BGM));
-        if (!paused) music.play();
+        music = replacement;
+        musicEnvelope = envelope;
+        if (music != null && !paused) music.play();
     }
 
     public void play(Cue cue) {
@@ -61,7 +94,7 @@ public final class GameAudio implements Disposable {
 
     public void volume(Channel channel, int percent) {
         levels.put(channel, Math.clamp(percent, 0, 100));
-        if (music != null) music.setVolume(gain(Channel.BGM));
+        if (music != null) music.setVolume(gain(Channel.BGM) * musicEnvelope);
         float sfxGain = gain(Channel.SFX);
         voices.forEach((cue, voice) -> sounds.get(cue).setVolume(voice, sfxGain));
     }
@@ -85,7 +118,9 @@ public final class GameAudio implements Disposable {
 
     @Override
     public void dispose() {
-        music(null);
+        targetTrack = null;
+        fadingMusic = false;
+        startMusic(null, 0f);
         sounds.values().forEach(Sound::dispose);
         sounds.clear();
         voices.clear();

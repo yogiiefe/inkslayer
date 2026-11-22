@@ -1,6 +1,6 @@
 # INKSLAYER! Asset Production Checklist
 
-The campaign contains four stages and 40 encounters. The current build uses code-drawn pixel art, seven music loops, and 13 sound effects. Check off each asset when its final version has been reviewed in game. See the [build plan](BUILD_PLAN.md), [campaign roster](../assets/data/campaign.json), and [audio inventory](../assets/audio/CREDITS.md).
+The campaign contains four stages and 40 encounters. The current build uses code-drawn character art, supplied menu and cinematic graphics, six synthesized music loops, a supplied cinematic track and six sound effects. Check off each asset when its final version has been reviewed in game. See the [build plan](BUILD_PLAN.md), [campaign roster](../assets/data/campaign.json), and [audio inventory](../assets/audio/CREDITS.md).
 
 ## Draw
 
@@ -79,7 +79,7 @@ A short opening cue or a variation of the title theme is optional.
 
 ### Sound effects
 
-These 13 cues already have playback hooks in the build.
+The build plays menu action, pen stroke, recognition accepted, recognition retry, victory and Skip cues. The spell, counter, hit and defeat cues below are planned production assets.
 
 - [ ] Menu action.
 - [ ] Pen stroke.
@@ -94,6 +94,7 @@ These 13 cues already have playback hooks in the build.
 - [ ] Hit.
 - [ ] Victory.
 - [ ] Defeat.
+- [ ] Skip.
 
 Optional polish cues include a guard impact, a monster wind-up cue, Kotoba's page turn, the seal crack, and cutscene sounds that carry a story beat. Listen to the busiest battle with music and effects together. Check that the incoming attack still reads visually with audio muted.
 

@@ -31,11 +31,13 @@
     {
       "name": "Elements",
       "opening": [
-        "In this world!",
-        "Everyone must answer in Japanese. Mr. Kotoba's inspectors go from door to door, and anyone who fails is condemned.",
-        "You can't speak Japanese. When the inspector reaches your street, he walks straight past your door.",
-        "A clerk left your name off the list. For once, a mistake in the paperwork saves a life.",
-        "At the water gate, someone has left a note and a pen. The gate won't listen to you either. It might listen to the ink."
+        "In this world",
+        "Everyone must speak Japanese to stay alive.",
+        "I can't speak a word of it.",
+        "Mr. Kotoba turns those who fail into his inspectors.",
+        "But when they reach my house, they walk straight past.",
+        "A clerk forgot to put my name on the list.",
+        "At the water gate, I find a pen and a note that might keep me alive."
       ],
       "encounters": [
         {"id":"s1-01","name":"Ember","element":"FIRE","attacks":["FIRE"],"health":30,"damage":6,"lessonId":"水"},
@@ -53,10 +55,13 @@
     {
       "name": "Pets",
       "opening": [
-        "Past the water gate, every inspector wears a number. The same numbers turn up beside the names on Kotoba's punishment list.",
-        "In the sealed district, a dog waits beside a door that hasn't opened in days. Its bowl still has its owner's name.",
-        "An examiner in a mask reads the order aloud. When the dog barks, the examiner stops halfway through the sentence.",
-        "You follow the examiner. Whatever the mask is hiding, the dog already knows."
+        "In this district, the pets still wait for their owners.",
+        "Every house I pass has an inspection seal on its door.",
+        "The inspectors wear numbers from Kotoba's punishment list.",
+        "Beside one sealed door, a dog waits by its owner's bowl.",
+        "It barks at an inspector passing through the street.",
+        "He stops halfway through reading his orders.",
+        "I follow him to find out who the dog recognizes."
       ],
       "encounters": [
         {"id":"s2-01","name":"Ember Hound","element":"FIRE","attacks":["FIRE","EARTH"],"health":40,"damage":7,"lessonId":"犬"},
@@ -74,10 +79,13 @@
     {
       "name": "Weather",
       "opening": [
-        "The examiners used to live behind the doors they now guard. In the sealed district, a dog still follows one of them home.",
-        "The road uphill leads to another inspection queue. Rain soaks the ledgers, but the order to stay in line is printed on tin.",
-        "The shelter has room for everyone. The examiner at the door has a key and an order to keep it locked.",
-        "If an examiner can still remember a home, maybe one can still choose to open a door. You head for the shelter."
+        "On this road, everyone needs permission to escape the storm.",
+        "People shiver in a queue that stretches uphill.",
+        "Rain washes the ink from their inspection papers.",
+        "The order to stay in line is printed on tin.",
+        "An empty shelter stands beside them with its door locked.",
+        "Its keeper was once a person who needed shelter too.",
+        "I walk toward him, hoping he can still choose to turn the key."
       ],
       "encounters": [
         {"id":"s3-01","name":"Rain Wisp","element":"WATER","attacks":["WATER","METAL"],"health":42,"damage":8,"lessonId":"雨"},
@@ -95,10 +103,13 @@
     {
       "name": "Food",
       "opening": [
-        "On the storm road, an examiner opened the shelter. Inside, the people told you who was checking the ration line in person.",
-        "Steam rolls out of the kitchens. There are meals waiting behind the desk, but everyone has to answer before they get a plate.",
-        "At the end of the line, Mr. Kotoba keeps one hand on the ledger. Nobody gets close enough to read what's inside.",
-        "You join the line with the pen from the water gate. This time, you want the inspector to see you coming."
+        "At this kitchen, everyone must pass an exam before they eat.",
+        "Inside the shelter, someone tells me Kotoba is checking the queue himself.",
+        "I follow the smell of food to a line of hungry people.",
+        "Nine examiners stand between me and his desk.",
+        "Kotoba keeps one hand on the ledger that missed my name.",
+        "This time, I step forward before he can look away.",
+        "I take out my pen and wait for the first question."
       ],
       "encounters": [
         {"id":"s4-01","name":"Examiner I","element":"FIRE","attacks":["FIRE","WATER"],"health":44,"damage":8,"lessonId":"水"},
@@ -120,11 +131,11 @@
     {"characters":["雨","風","雪","雲","空"],"attacks":["METAL"]}
   ],
   "ending": [
-    "Mr. Kotoba turns the last page. His own exam has been turned against him.",
-    "His final seal cracks. Mr. Kotoba falls, and the examination hall opens.",
-    "The gates unlock. Outside, the people gather to read the orders that kept them apart.",
-    "They take the inspection notices down and put up a sign for a free class.",
-    "A student asks how to write water. You draw 水, stroke by stroke, and pass them the pen.",
-    "The city still has much to learn. This time, there is room to make a mistake."
+    "Kotoba turns the last page to find that I have passed his own exam.",
+    "His final seal breaks, and he falls beside the open ledger.",
+    "Beyond the unlocked gates, people gather to read the orders that kept them apart.",
+    "They replace the inspection notices with a sign for a free class.",
+    "When a student asks how to write 水, I show them and pass over my pen.",
+    "I wait while they try again."
   ]
 }

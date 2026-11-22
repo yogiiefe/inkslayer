@@ -33,15 +33,16 @@ import static com.yogiiefe.inkslayer.screens.PixelArtViewport.UI_HEIGHT;
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.UI_WIDTH;
 
 public final class GameScreen extends ScreenAdapter {
-    enum Mode { TITLE, CHAPTER_SELECT, SLOTS, SETTINGS, KEYBINDS, CINEMATIC, GAME, STORY, PAUSE, JOURNAL, PRACTICE }
+    enum Mode { TITLE, CHAPTER_SELECT, SLOTS, SETTINGS, KEYBINDS, CINEMATIC, GAME, PAUSE, JOURNAL, PRACTICE }
     enum GlossaryTab { KANJI, HIRAGANA, KATAKANA }
     static final int CANVAS_X = 0, CANVAS_WIDTH = 1280, CANVAS_TOP = 260;
     static final int GUIDE_SIZE = 176, GUIDE_X = 552, GUIDE_Y = 54;
     static final int KEYBIND_X = 410, KEYBIND_WIDTH = 460, KEYBIND_HEIGHT = 40;
     static final int CHAPTER_X = 415, CHAPTER_WIDTH = 450, CHAPTER_HEIGHT = 52;
     static final int CHAPTER_BACK_X = 490, CHAPTER_BACK_Y = 124, CHAPTER_BACK_WIDTH = 300, CHAPTER_BACK_HEIGHT = 42;
-    static final int SKIP_WIDTH = 128, SKIP_HEIGHT = 44;
-    static final int SKIP_X = UI_WIDTH - SKIP_WIDTH - 24, SKIP_Y = UI_HEIGHT - SKIP_HEIGHT - 24;
+    // Padded clickable area around the artwork in the 320x180 SkipAnim.png sheet.
+    static final int SKIP_WIDTH = 132, SKIP_HEIGHT = 44;
+    static final int SKIP_X = UI_WIDTH - SKIP_WIDTH - 8, SKIP_Y = UI_HEIGHT - SKIP_HEIGHT - 8;
     private static final double GUIDE_STROKES_PER_SECOND = 1.1;
     private static final Track[] STAGE_TRACKS = {Track.STAGE1, Track.STAGE2, Track.STAGE3, Track.STAGE4};
 
@@ -73,10 +74,9 @@ public final class GameScreen extends ScreenAdapter {
     GlossaryTab glossaryTab = GlossaryTab.KANJI;
     double effectTime;
     boolean tutorial;
-    StoryBeat story;
-    int storyLine;
-    private Runnable afterStory;
-    double elapsed, playTime, panelTime, titleHoverAt;
+    double elapsed, playTime, panelStartedAt, titleHoverAt;
+    double skipHoverAt = -1;
+    boolean cinematicTextComplete;
     float mouseX = -1, mouseY = -1;
     String feedback = "", saveMessage = "", settingsMessage = "";
     String bindingMessage = "";
@@ -123,6 +123,7 @@ public final class GameScreen extends ScreenAdapter {
 
         double frame = Math.min(delta, 0.1);
         elapsed += frame;
+        audio.update((float) frame);
         effectTime = Math.max(0, effectTime - frame);
         if (mode == Mode.GAME) {
             playTime += frame;
@@ -131,9 +132,9 @@ public final class GameScreen extends ScreenAdapter {
                 correctTime -= frame;
                 if (correctTime <= 0) nextQuiz();
             }
-        } else if (mode == Mode.CINEMATIC && (!ending || saveMessage.isEmpty())) {
-            panelTime += frame;
-            if (panelTime >= Math.max(4, panels().get(panel).length() / 14.0 + 1)) nextPanel();
+        } else if (mode == Mode.CINEMATIC) {
+            if (!hit(mouseX, mouseY, SKIP_X, SKIP_Y, SKIP_WIDTH, SKIP_HEIGHT)) skipHoverAt = -1;
+            else if (skipHoverAt < 0) skipHoverAt = elapsed;
         }
         if ((mode == Mode.GAME || mode == Mode.PRACTICE) && guideGlyph != null) {
             guideProgress += frame * GUIDE_STROKES_PER_SECOND;
@@ -156,7 +157,6 @@ public final class GameScreen extends ScreenAdapter {
         }
         if (run.phase == Phase.LESSON) {
             beginLesson();
-            if (run.isBoss()) showStory(StoryBeat.KOTOBA, () -> mode = Mode.GAME);
         }
     }
 
@@ -274,15 +274,30 @@ public final class GameScreen extends ScreenAdapter {
         ending = finalScene;
         mode = Mode.CINEMATIC;
         panel = 0;
-        panelTime = 0;
+        panelStartedAt = elapsed;
+        cinematicTextComplete = false;
+        skipHoverAt = -1;
         saveMessage = "";
-        audio.music(ending ? Track.ENDING : tutorial ? Track.MENU : STAGE_TRACKS[run.stage]);
+        audio.music(Track.STORY);
     }
 
     private void nextPanel() {
-        panelTime = 0;
+        panelStartedAt = elapsed;
+        cinematicTextComplete = false;
         if (panel + 1 < panels().size()) panel++;
         else finishCinematic();
+    }
+
+    int cinematicVisibleCharacters() {
+        String text = panels().get(panel).toUpperCase(Locale.ROOT);
+        return cinematicTextComplete ? text.codePointCount(0, text.length())
+            : (int) ((elapsed - panelStartedAt) * 28);
+    }
+
+    private void advanceCinematic() {
+        String text = panels().get(panel).toUpperCase(Locale.ROOT);
+        if (cinematicVisibleCharacters() < text.codePointCount(0, text.length())) cinematicTextComplete = true;
+        else nextPanel();
     }
 
     private void finishCinematic() {
@@ -293,21 +308,9 @@ public final class GameScreen extends ScreenAdapter {
         } else enterStage();
     }
 
-    private void showStory(StoryBeat beat, Runnable continuation) {
-        story = beat;
-        storyLine = 0;
-        afterStory = continuation;
-        mode = Mode.STORY;
-    }
-
-    private void continueStory(boolean skip) {
-        if (!skip && storyLine + 1 < story.lines.size()) {
-            storyLine++;
-            return;
-        }
-        var continuation = afterStory;
-        afterStory = null;
-        continuation.run();
+    private void skipCinematic() {
+        audio.play(Cue.SKIP);
+        finishCinematic();
     }
 
     private void enterStage() {
@@ -371,7 +374,7 @@ public final class GameScreen extends ScreenAdapter {
         } else {
             run.completeQuizEncounter();
             if (run.isBoss()) endingPending = true;
-            if (StoryBeat.victory(run.stage, run.encounter) == null) save();
+            save();
             audio.play(Cue.VICTORY);
         }
     }
@@ -427,11 +430,7 @@ public final class GameScreen extends ScreenAdapter {
         } else if (run.isFinalEncounter()) {
             endingPending = true;
             if (save()) cinematic(true);
-        } else if (run.phase == Phase.WON) {
-            var beat = StoryBeat.victory(run.stage, run.encounter);
-            if (beat != null) showStory(beat, this::advanceCheckpoint);
-            else advanceCheckpoint();
-        }
+        } else if (run.phase == Phase.WON) advanceCheckpoint();
     }
 
     private void advanceCheckpoint() {
@@ -444,8 +443,6 @@ public final class GameScreen extends ScreenAdapter {
             return;
         }
         enterStage();
-        var beat = StoryBeat.arrival(run.stage, run.encounter);
-        if (beat != null) showStory(beat, () -> mode = Mode.GAME);
     }
 
     private void clearDrawing() {
@@ -572,8 +569,7 @@ public final class GameScreen extends ScreenAdapter {
                 if (bindingKey) { bindingKey = false; bindingMessage = ""; }
                 else mode = Mode.SETTINGS;
             }
-            case CINEMATIC -> finishCinematic();
-            case STORY -> continueStory(true);
+            case CINEMATIC -> skipCinematic();
             case GAME -> { cancelStroke(); mode = Mode.PAUSE; }
             case PAUSE -> mode = Mode.GAME;
             case JOURNAL -> mode = journalReturn;
@@ -693,7 +689,8 @@ public final class GameScreen extends ScreenAdapter {
                 }
             }
             case CINEMATIC -> {
-                if (hit(x, y, SKIP_X, SKIP_Y, SKIP_WIDTH, SKIP_HEIGHT)) finishCinematic();
+                if (hit(x, y, SKIP_X, SKIP_Y, SKIP_WIDTH, SKIP_HEIGHT)) skipCinematic();
+                else if (hit(x, y, 0, 0, UI_WIDTH, UI_HEIGHT)) advanceCinematic();
             }
             case PAUSE -> {
                 if (hit(x, y, 460, 366, 360, 46)) back();
@@ -722,10 +719,6 @@ public final class GameScreen extends ScreenAdapter {
                         if (hit(x, y, tileX(i, options.size()), 80, 76, 58)) { tileSelection = i; addTile(i); break; }
                     }
                 }
-            }
-            case STORY -> {
-                if (hit(x, y, 740, 75, 180, 44)) continueStory(false);
-                else if (hit(x, y, 360, 75, 180, 44)) continueStory(true);
             }
         }
     }
@@ -768,7 +761,7 @@ public final class GameScreen extends ScreenAdapter {
                 }
                 case KEYBINDS -> keybindKey(key);
                 case CINEMATIC -> {
-                    if (key == Input.Keys.S) finishCinematic();
+                    if (key == Input.Keys.S) skipCinematic();
                 }
                 case PAUSE -> {
                     if (key == Input.Keys.ENTER) back();
@@ -786,10 +779,6 @@ public final class GameScreen extends ScreenAdapter {
                 }
                 case PRACTICE -> drawingKey(key);
                 case GAME -> gameKey(key);
-                case STORY -> {
-                    if (key == Input.Keys.ENTER) continueStory(false);
-                    else if (key == Input.Keys.S) continueStory(true);
-                }
             }
             return true;
         }

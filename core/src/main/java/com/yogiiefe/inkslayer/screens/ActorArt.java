@@ -18,7 +18,6 @@ final class ActorArt implements Disposable {
     };
     private final Texture[] traveler = {traveler(0), traveler(1), traveler(-1)};
     private final Texture[][] enemy = new Texture[4][10];
-    private final Texture unmasked = unmaskedSprite();
 
     ActorArt() {
         for (int stage = 0; stage < enemy.length; stage++)
@@ -37,27 +36,8 @@ final class ActorArt implements Disposable {
         batch.draw(enemy[stage][index], snap(x), snap(floor + lift), DRAW_SIZE, DRAW_SIZE);
     }
 
-    void unmasked(SpriteBatch batch, float x, float floor) {
-        batch.setColor(Color.WHITE);
-        batch.draw(unmasked, snap(x), snap(floor), DRAW_SIZE, DRAW_SIZE);
-    }
-
     private static int snap(float position) {
         return Math.round(position / ART_PIXEL) * ART_PIXEL;
-    }
-
-    private static Texture unmaskedSprite() {
-        var p = canvas();
-        elemental(p, 0);
-        shape(p, 1, 12,17, 22,10, 37,11, 45,19, 42,32, 30,38, 20,34, 13,27);
-        shape(p, 3, 16,21, 23,16, 36,16, 42,21, 39,29, 31,35, 23,30, 18,28);
-        rect(p, 0, 23, 23, 3, 2);
-        rect(p, 0, 34, 22, 3, 2);
-        rect(p, 1, 27, 29, 6, 1);
-        shape(p, 4, 2,54, 9,51, 17,53, 19,59, 10,63, 3,60);
-        rect(p, 0, 6, 55, 4, 1);
-        rect(p, 0, 12, 55, 4, 1);
-        return texture(p);
     }
 
     private static Texture traveler(int stride) {
@@ -229,7 +209,6 @@ final class ActorArt implements Disposable {
     }
 
     @Override public void dispose() {
-        unmasked.dispose();
         for (Texture frame : traveler) frame.dispose();
         for (Texture[] stage : enemy) for (Texture sprite : stage) sprite.dispose();
     }

@@ -2,6 +2,10 @@
 
 Original prototype code-drawn scenery and characters: INKSLAYER project.
 
+The cinematic alphabet in `fonts/cinematic.png` is the user-supplied `Font.png`, imported unchanged. `fonts/cinematic.fnt` maps A–Z from rows 108–114, preserving their pixel shapes and spacing. Story text uses the sample line's centered position at row 77 of the 320×180 reference. Punctuation and Japanese characters use the included DotGothic16 font as a fallback.
+
+The cinematic Skip animation uses the user-supplied `SkipAnim.png`, imported unchanged. Its two arrow poses occupy rows 4–10 and 14–20. Hover motion and label dimming share the main menu's timing, with a fixed label and a two-pixel arrow travel on the 320×180 art grid.
+
 - [Campaign stroke templates and KanjiVG provenance](data/kanji/TEMPLATES.md)
 - [Campaign Japanese reading and vocabulary references](data/learning/SOURCES.md)
 - [Original music and sound effects](audio/CREDITS.md)

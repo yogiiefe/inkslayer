@@ -4,7 +4,7 @@
 
 `ActorArt.java` draws original 64×64 transparent monochrome pixel sprites at startup. Sprites use six gray values, nearest filtering, and a shared baseline. The traveler has a neutral pose and two stride poses, displayed at 3× in gameplay and mirrored on turns. Enemies render at 4×. Elements, Pets, Weather, and Food each have distinct sprite families and encounter variants. Mr. Kotoba has a crown and ledger. Weather spirits use a short stepped hover. These poses and effects are visual only.
 
-The scenery and title screen are drawn in code. The title screen shows a monochrome moonlit landscape with animated mist and water.
+The scenery is drawn in code. The title screen uses `INKSLAYER! logo.png` and `title-menu.png`. Cinematic lettering uses the supplied bitmap alphabet and a two-pose Skip sprite sheet.
 
 The table includes assets from the original prototype that are still used by the campaign or its regression tests.
 
@@ -15,12 +15,14 @@ The table includes assets from the original prototype that are still used by the
 | `ScreenView.java` / district | Night sky, pixel moon, skyline, lanterns, gate, terrain, motes | 640×360 world view at 2× display scale; no tileset | Java rectangles | Implemented prototype |
 | `assets/fonts/DotGothic16-Regular.ttf` | Japanese and Latin pixel UI text | Selected glyphs | TTF | Included in JAR |
 | `assets/fonts/DotGothic16-OFL.txt` | Font notices/license | N/A | Text | Included in JAR |
+| `assets/fonts/cinematic.fnt` and `cinematic.png` | Cinematic A–Z lettering and layout reference | 320×180 source image, 7-pixel-tall glyphs | BMFont / PNG | Included in JAR |
+| `assets/SkipAnim.png` | Animated cinematic Skip control | Two arrow poses on a 320×180 sheet | PNG | Included in JAR |
 | `assets/data/kanji/water-source.svg` | Original ordered 水 paths, provenance | 109×109 viewBox, four paths; not a sprite sheet | SVG | Preserved KanjiVG original, CC BY-SA 3.0 |
 | `assets/data/kanji/water.json` | Derived cubic templates | Four ordered strokes; sampled at load | JSON | Implemented, CC BY-SA 3.0 derived data |
 | `assets/data/kanji/KanjiVG-LICENSE.txt` | Preserved supplied license | N/A | Text | Included in JAR |
 | `assets/data/level.json` | Level solids, spawns, projectile/enemy tuning, elemental matrix | 1800-unit horizontal level | JSON | Implemented |
 | `assets/CREDITS.md` | Font/data authors, source URLs, attribution, changes and license links | N/A | Markdown | Included in JAR |
-| `assets/audio/` | Music and sound effects | 22,050 Hz mono PCM | WAV | Included in JAR |
+| `assets/audio/` | Six synthesized music loops, supplied story track and six sound effects | Generated WAVs use 22,050 Hz mono PCM | WAV / MP3 | Included in JAR |
 
 Font and stroke sources are documented in the [credits](../assets/CREDITS.md).
 

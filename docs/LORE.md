@@ -12,6 +12,8 @@ Prototype-authored staging: "The Forgotten District", a fire inspector, and shor
 
 ## Narrative production rules
 
+Present the story through chapter-opening and epilogue cinematics. Monster encounters proceed directly through combat, victory feedback and checkpoint progression.
+
 Track each accepted character/location with a stable ID, motivation, knowledge boundaries, first appearance, and related quest flags. Track jokes by target and context: satirize the fictional world and antagonist rather than beginners struggling to learn or Japanese identities. Fictional spell associations must not masquerade as etymology.
 
 Environmental story proposals should identify an observable scene detail and the inference available to a player, with an optional text route for accessibility. Essential navigation and Japanese facts must remain understandable without interpreting a joke.

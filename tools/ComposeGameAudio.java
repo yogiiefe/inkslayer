@@ -31,22 +31,21 @@ class ComposeGameAudio {
             new int[]{0, 6, 12, -1, 7, 6, 3, -1, 0, 3, 7, 12, 13, 12, 7, 6}, .4);
         song(bgm, "boss", 138, new int[]{40, 46, 41, 39},
             new int[]{0, 7, 12, 15, 12, 7, 0, 6, 12, 15, 18, 15, 7, 6, 3, 0}, .59);
-        song(bgm, "ending", 72, new int[]{48, 43, 45, 41},
-            new int[]{7, 12, 16, -1, 14, 12, 7, -1, 4, 7, 12, -1, 16, 14, 12, -1}, .0);
 
         cue(sfx, "ui", .09, new int[]{76, 81}, .04);
         cue(sfx, "stroke", .045, new int[]{54, 51}, .53);
         cue(sfx, "accept", .23, new int[]{67, 72, 76}, .08);
         cue(sfx, "retry", .27, new int[]{60, 55, 52}, .2);
-        cue(sfx, "water", .36, new int[]{83, 79, 76, 71}, .16);
-        cue(sfx, "fire", .38, new int[]{55, 60, 67, 77}, .78);
-        cue(sfx, "metal", .37, new int[]{84, 79, 84, 91}, .32);
-        cue(sfx, "wood", .33, new int[]{60, 64, 62, 67}, .22);
-        cue(sfx, "earth", .46, new int[]{42, 38, 34, 30}, .50);
-        cue(sfx, "counter", .44, new int[]{58, 70, 74, 82}, .18);
-        cue(sfx, "hit", .21, new int[]{45, 38, 33}, .7);
         cue(sfx, "victory", .72, new int[]{60, 64, 67, 72, 76, 79}, .08);
-        cue(sfx, "defeat", .73, new int[]{64, 62, 57, 52}, .13);
+        skipChime(sfx);
+    }
+
+    private static void skipChime(Path directory) throws IOException {
+        double[] samples = new double[(int) Math.round(.34 * RATE)];
+        tone(samples, 0, .11, 79, .12, .004, .09);
+        tone(samples, .045, .15, 84, .16, .004, .12);
+        tone(samples, .105, .22, 88, .14, .004, .18);
+        write(directory.resolve("skip.wav"), samples);
     }
 
     private static void song(Path directory, String name, int bpm, int[] roots, int[] melody, double beatMix)
@@ -56,7 +55,7 @@ class ComposeGameAudio {
         for (int bar = 0; bar < 4; bar++) {
             double offset = bar * 4 * beat;
             int root = roots[bar];
-            int third = name.equals("ending") || name.equals("stage2") ? 4 : 3;
+            int third = name.equals("stage2") ? 4 : 3;
             tone(samples, offset, 3.96 * beat, root, .09, .18, .8);
             tone(samples, offset, 3.96 * beat, root + third + 12, .041, .32, .85);
             tone(samples, offset, 3.96 * beat, root + 19, .041, .32, .85);
@@ -107,7 +106,7 @@ class ComposeGameAudio {
         for (int i = 0; i < notes.length; i++) {
             double onset = step * i;
             tone(samples, onset, step * 1.6, notes[i], .27, .005, step);
-            percussion(samples, onset, step, grit * .27, name.equals("earth") || name.equals("hit"));
+            percussion(samples, onset, step, grit * .27, false);
         }
         write(directory.resolve(name + ".wav"), samples);
     }
