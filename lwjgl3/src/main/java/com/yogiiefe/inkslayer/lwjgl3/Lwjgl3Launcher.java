@@ -81,7 +81,8 @@ public class Lwjgl3Launcher {
         configuration.setPauseWhenLostFocus(!Boolean.getBoolean("inkslayer.smoke"));
         //// You can change these files; they are in lwjgl3/src/main/resources/ .
         //// They can also be loaded from the root of assets/ .
-        configuration.setWindowIcon("inkslayer-icon.png");
+        configuration.setWindowIcon("icon.png", "icons/icon-32.png", "icons/icon-48.png",
+            "icons/icon-64.png", "icons/icon-128.png", "icons/icon-256.png");
 
         //// This could improve compatibility with Windows machines with buggy OpenGL drivers, Macs
         //// with Apple Silicon that have to emulate compatibility with OpenGL anyway, and more.

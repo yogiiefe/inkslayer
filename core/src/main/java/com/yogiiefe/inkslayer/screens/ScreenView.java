@@ -12,14 +12,10 @@ import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.ScreenUtils;
-import com.yogiiefe.inkslayer.audio.GameAudio.Channel;
 import com.yogiiefe.inkslayer.recognition.InkPoint;
 import com.yogiiefe.inkslayer.screens.KeyBindings.Action;
 import com.yogiiefe.inkslayer.world.CampaignRun;
 import com.yogiiefe.inkslayer.world.CampaignRun.Phase;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
@@ -33,7 +29,6 @@ final class ScreenView implements Disposable {
     private static final Color MUTED = Color.valueOf("b1b1b1"), ACCENT = Color.valueOf("cccccc");
     private static final Color PINK = Color.valueOf("909090"), PANEL = Color.valueOf("1b1b1b"), LINE = Color.valueOf("525252");
     private static final Color[] STAGE = colors("131313", "1d1d1d", "191919", "171717");
-    private static final DateTimeFormatter SAVE_DATE = DateTimeFormatter.ofPattern("dd MMM, HH:mm").withZone(ZoneId.systemDefault());
 
     private final GameScreen g;
     private final SpriteBatch batch = new SpriteBatch();
@@ -44,6 +39,7 @@ final class ScreenView implements Disposable {
     private final BitmapFont small, body, large, quizFont;
     private final BitmapFont cinematicFont;
     private final TitleMenu titleMenu = new TitleMenu();
+    private final MenuView menus;
     private final GlyphLayout layout = new GlyphLayout();
 
     ScreenView(GameScreen screen) {
@@ -72,6 +68,7 @@ final class ScreenView implements Disposable {
         } finally {
             generator.dispose();
         }
+        menus = new MenuView(g, batch, pixel);
     }
 
     private static Color[] colors(String... hex) {
@@ -139,13 +136,9 @@ final class ScreenView implements Disposable {
         }
         switch (g.mode) {
             case TITLE -> {}
-            case CHAPTER_SELECT -> chapterSelect();
-            case SLOTS -> slots();
-            case SETTINGS -> settings();
-            case KEYBINDS -> keybinds();
+            case CHAPTER_SELECT, SLOTS, SETTINGS, KEYBINDS, PAUSE -> menus.draw();
             case CINEMATIC -> cinematic();
             case GAME -> arenaUi();
-            case PAUSE -> pause();
             case JOURNAL -> journal();
             case PRACTICE -> practice();
         }
@@ -391,103 +384,6 @@ final class ScreenView implements Disposable {
         if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 303, PINK);
     }
 
-    private void chapterSelect() {
-        panel(350, 101, 580, 518);
-        center(large, "Choose a chapter", 640, 576, PAPER);
-        for (int chapter = 0; chapter < g.content.stages.size(); chapter++) {
-            String label = "Chapter " + (chapter + 1) + "  /  " + g.content.stages.get(chapter).name();
-            button(label, CHAPTER_X, chapterY(chapter), CHAPTER_WIDTH, CHAPTER_HEIGHT, g.chapterSelection == chapter);
-        }
-        button("Back", CHAPTER_BACK_X, CHAPTER_BACK_Y, CHAPTER_BACK_WIDTH, CHAPTER_BACK_HEIGHT, false);
-    }
-
-    private void slots() {
-        panel(292, 90, 696, 530);
-        center(large, "Save Files", 640, 574, PAPER);
-        for (int i = 0; i < g.slots.size(); i++) {
-            var slot = g.slots.get(i);
-            int y = 425 - i * 90;
-            box(320, y, 640, 68, g.slotSelection == i ? LINE : PANEL);
-            box(322, y + 2, 636, 64, g.slotSelection == i ? PANEL : INK);
-            if (g.slotSelection == i) box(320, y, 4, 68, ACCENT);
-            String detail = slot.loadable()
-                ? slot.progress().completed() ? "Completed  /  Replay ending"
-                : g.content.stages.get(slot.progress().stage()).name() + "  /  " + (slot.progress().encounter() + 1) + " of 10"
-                : slot.occupied() ? "Unreadable save" : "Empty";
-            text(body, "Slot " + (i + 1) + "     " + detail, 340, y + 57, PAPER);
-            if (slot.loadable()) {
-                var progress = slot.progress();
-                long minutes = progress.playSeconds() / 60;
-                text(small, "Played " + minutes + " min    "
-                    + SAVE_DATE.format(Instant.ofEpochMilli(progress.savedAt())) + (slot.recovered() ? "    Backup" : ""),
-                    340, y + 26, MUTED);
-            }
-            if (slot.loadable()) right(small, "Load", 816, y + 43, ACCENT);
-            if (slot.occupied()) button("Delete", 840, y + 13, 100, 42, false);
-        }
-        center(small, g.saveMessage, 640, 201, PINK);
-        button("Back", 490, 116, 300, 44, false);
-        if (g.confirmDelete) {
-            box(0, 0, 1280, 720, new Color(0, 0, 0, 0.8f));
-            panel(356, 250, 568, 218);
-            center(quizFont, "Delete Slot " + (g.slotSelection + 1) + "?", 640, 430, PAPER);
-            center(body, "This removes the checkpoint and its backup.", 640, 375, MUTED);
-            button("Cancel (Esc)", 414, 283, 200, 44, false);
-            button("Delete", 666, 283, 200, 44, true);
-        }
-    }
-
-    private void settings() {
-        panel(338, 104, 604, 513);
-        center(large, "Settings", 640, 562, PAPER);
-        button("Display: " + g.displayMode.label, 490, 473, 300, 44, g.setting == 3);
-        String[] names = {"Master", "SFX", "BGM"};
-        for (int i = 0; i < names.length; i++) {
-            int y = volumeY(i);
-            int value = g.audio.volume(Channel.values()[i]);
-            text(body, names[i], 372, y + 18, g.setting == i ? ACCENT : PAPER);
-            box(496, y, 320, 8, LINE);
-            box(496, y, value * 3.2f, 8, ACCENT);
-            box(491 + value * 3.2f, y - 5, 10, 18, PAPER);
-            right(body, value + "%", 904, y + 18, PAPER);
-        }
-        button("Keybinds", 490, 250, 300, 40, g.setting == 4);
-        button(g.strict ? "Stroke order: Strict" : "Stroke order: Coaching", 490, 204, 300, 40, false);
-        center(small, g.settingsMessage.isEmpty() ? "Use the mouse or arrow keys to change settings" : g.settingsMessage,
-            640, 126, g.settingsMessage.isEmpty() ? MUTED : PAPER);
-        button("Back", 490, 136, 300, 42, true);
-    }
-
-    private void keybinds() {
-        panel(338, 104, 604, 513);
-        center(large, "Keybinds", 640, 562, PAPER);
-        for (Action action : Action.values()) {
-            int y = keybindY(action);
-            box(KEYBIND_X, y, KEYBIND_WIDTH, KEYBIND_HEIGHT, g.selectedBinding == action ? LINE : PANEL);
-            text(body, action.label, KEYBIND_X + 16, y + 28, PAPER);
-            right(body, g.bindingKey && g.selectedBinding == action ? "Press a key" : g.bindings.label(action),
-                KEYBIND_X + KEYBIND_WIDTH - 16, y + 28, PAPER);
-        }
-        String instruction = g.bindingKey ? "Press a key, or Esc to cancel." : "Select a control to change its key.";
-        center(small, g.bindingMessage.isEmpty() ? instruction : g.bindingMessage, 640, 194, MUTED);
-        button("Back", 490, 135, 300, 42, true);
-    }
-
-    private void pause() {
-        panel(350, 157, 580, 453);
-        center(large, "Paused", 640, 567, PAPER);
-        center(body, g.tutorial ? "The Unchecked Door" : g.content.stages.get(g.run.stage).name()
-            + "  /  Encounter " + (g.run.encounter + 1) + " of 10", 640, 510, PAPER);
-        center(small, g.bindings.label(Action.SUBMIT) + " submit   /   " + g.bindings.label(Action.HELP) + " guide   /   "
-            + g.bindings.label(Action.CLEAR) + " clear   /   " + g.bindings.label(Action.UNDO) + " undo", 640, 471, MUTED);
-        button("Resume", 460, 366, 360, 46, true);
-        button("Glossarium", 460, 307, 360, 46, false);
-        button("Settings", 460, 248, 360, 46, false);
-        button(g.slot < 0 || g.tutorial ? "Return to Menu" : "Save & Return to Menu", 460, 189, 360, 46, false);
-        center(small, g.tutorial ? "First checkpoint: Stage 1." : g.slot < 0 ? "All slots are full. This run is unsaved."
-            : g.saveMessage.isEmpty() ? "Resumes at the encounter checkpoint." : g.saveMessage, 640, 179, MUTED);
-    }
-
     private void journal() {
         panel(275, 76, 730, 569);
         center(large, "Glossarium", 640, 612, PAPER);
@@ -661,6 +557,7 @@ final class ScreenView implements Disposable {
         cinematicFont.dispose();
         art.dispose();
         titleMenu.dispose();
+        menus.dispose();
         pixelArt.dispose();
         pixel.dispose();
         cinematicSkip.dispose();

@@ -34,8 +34,7 @@ final class DesktopSmoke {
             capture("settings");
             resizing = true;
             try {
-                key(Input.Keys.UP);
-                key(Input.Keys.UP);
+                for (int i = 0; i < 3; i++) key(Input.Keys.DOWN);
                 key(Input.Keys.RIGHT);
                 require(g.displayMode == DisplayMode.BORDERLESS && !Gdx.graphics.isFullscreen(), "borderless mode");
                 key(Input.Keys.RIGHT);
@@ -43,35 +42,73 @@ final class DesktopSmoke {
                 key(Input.Keys.RIGHT);
                 require(g.displayMode == DisplayMode.WINDOWED && !Gdx.graphics.isFullscreen(), "windowed mode");
                 require(Gdx.app.getPreferences("inkslayer-display").getString("mode").equals("WINDOWED"), "display preference");
-                key(Input.Keys.DOWN);
-                key(Input.Keys.DOWN);
+                for (int i = 0; i < 3; i++) key(Input.Keys.UP);
             } finally {
                 resizing = false;
             }
             int value = g.audio.volume(Channel.MASTER);
             key(Input.Keys.LEFT);
             require(g.audio.volume(Channel.MASTER) == Math.max(0, value - 5), "master slider");
+            var slider = MenuButton.MASTER;
+            var grab = screen(g, slider.centerX(), slider.centerY());
+            var end = screen(g, 1100, slider.centerY());
+            var input = Gdx.input.getInputProcessor();
+            input.touchDown(Math.round(grab.x), Math.round(grab.y), 0, Input.Buttons.LEFT);
+            input.touchDragged(Math.round(end.x), Math.round(end.y), 0);
+            require(g.menuPress == slider && g.audio.volume(Channel.MASTER) == 100, "slider drag clamped to endpoint");
+            input.touchUp(Math.round(end.x), Math.round(end.y), 0, Input.Buttons.LEFT);
+            require(g.menuPress == null, "slider released");
             g.audio.volume(Channel.MASTER, value);
-            key(Input.Keys.UP);
-            key(Input.Keys.ENTER);
+            click(g, MenuButton.STROKE.centerX(), MenuButton.STROKE.centerY());
+            require(g.strict, "stroke mode toggle");
+            click(g, MenuButton.STROKE.centerX(), MenuButton.STROKE.centerY());
+            click(g, MenuButton.KEYBINDS.centerX(), MenuButton.KEYBINDS.centerY());
             require(g.mode == GameScreen.Mode.KEYBINDS, "open Keybinds from Settings");
+            return;
+        }
+        if (frames == 9) {
+            capture("keybinds");
             for (int i = 0; i < Action.HELP.ordinal(); i++) key(Input.Keys.DOWN);
             key(Input.Keys.ENTER);
             key(Input.Keys.ENTER);
             require(g.bindingKey && !g.bindingMessage.isEmpty(), "duplicate gameplay keys must be rejected");
             key(Input.Keys.G);
             require(!g.bindingKey && new KeyBindings().matches(Action.HELP, Input.Keys.G), "help key persists");
-            key(Input.Keys.ESCAPE);
-            key(Input.Keys.ESCAPE);
-            key(Input.Keys.UP);
+            click(g, MenuButton.DEFAULT.centerX(), MenuButton.DEFAULT.centerY());
+            require(new KeyBindings().matches(Action.HELP, Input.Keys.H), "default keybind persists");
+            click(g, MenuButton.HELP.centerX(), MenuButton.HELP.centerY());
+            key(Input.Keys.G);
+            click(g, MenuButton.BACK.centerX(), MenuButton.BACK.centerY());
+            require(g.mode == Mode.SETTINGS, "keybind back arrow");
+            click(g, MenuButton.BACK.centerX(), MenuButton.BACK.centerY());
             key(Input.Keys.UP);
             key(Input.Keys.ENTER);
-            require(g.mode == Mode.CHAPTER_SELECT && g.chapterSelection == 0, "New must open chapter selection");
+            require(g.mode == Mode.SLOTS, "open saves");
+            return;
+        }
+        if (frames == 10) {
+            capture("saves");
+            click(g, MenuButton.BACK.centerX(), MenuButton.BACK.centerY());
+            require(g.mode == Mode.TITLE, "saves back arrow");
+            key(Input.Keys.UP);
+            key(Input.Keys.ENTER);
+            require(g.mode == Mode.CHAPTER_SELECT && g.menuFocus == MenuButton.ELEMENTS, "New must open chapter selection");
             require(!g.saveStore.inspect(0).occupied(), "use an empty -Dinkslayer.saves directory for smoke");
             return;
         }
-        if (frames == 9) {
+        if (frames == 11) {
             capture("chapter-select");
+            var card = MenuButton.PETS;
+            var start = screen(g, card.centerX(), card.centerY());
+            var outside = screen(g, 72, 540);
+            var input = Gdx.input.getInputProcessor();
+            input.mouseMoved(Math.round(start.x), Math.round(start.y));
+            require(g.menuHover == card, "chapter card hover");
+            input.touchDown(Math.round(start.x), Math.round(start.y), 0, Input.Buttons.LEFT);
+            require(g.mode == Mode.CHAPTER_SELECT && g.menuPress == card, "chapter card press waits for release");
+            input.touchUp(Math.round(outside.x), Math.round(outside.y), 0, Input.Buttons.LEFT);
+            require(g.mode == Mode.CHAPTER_SELECT && g.menuPress == null, "releasing outside cancels chapter selection");
+            key(Input.Keys.LEFT);
             key(Input.Keys.ENTER);
             require(g.mode == Mode.CINEMATIC && g.tutorial && g.panel == 0, "Elements starts its prologue");
             require(g.panels().getFirst().equals("In this world"), "Elements opening card");
@@ -80,17 +117,27 @@ final class DesktopSmoke {
             require(g.mode == Mode.CINEMATIC && g.panel == 0, "old Next keys must not advance a cinematic");
             return;
         }
-        if (frames == 10) {
+        if (frames == 12) {
             capture("opening");
-            Vector2 skip = screen(g, SKIP_X + SKIP_WIDTH / 2f, SKIP_Y + SKIP_HEIGHT / 2f);
-            Gdx.input.getInputProcessor().mouseMoved(Math.round(skip.x), Math.round(skip.y));
+            hoverSkip(g);
             return;
         }
 
         switch (g.mode) {
             case GAME -> play(g);
             case PAUSE -> {
-                if (!pauseShown) { capture("pause"); pauseShown = true; }
+                if (g.tutorial || g.run.phase != Phase.WALK) {
+                    key(Input.Keys.ESCAPE);
+                    return;
+                }
+                if (!pauseShown) {
+                    capture("pause");
+                    pauseShown = true;
+                    click(g, MenuButton.PAUSE_SETTINGS.centerX(), MenuButton.PAUSE_SETTINGS.centerY());
+                    require(g.mode == Mode.SETTINGS, "pause opens Settings");
+                    click(g, MenuButton.BACK.centerX(), MenuButton.BACK.centerY());
+                    require(g.mode == Mode.PAUSE, "settings back returns to Pause");
+                }
                 key(practiceChecked ? Input.Keys.ESCAPE : Input.Keys.TAB);
             }
             case JOURNAL -> {
@@ -128,6 +175,7 @@ final class DesktopSmoke {
                 skipCinematic(g);
                 require(g.mode == GameScreen.Mode.TITLE && g.saveStore.inspect(0).progress().completed(), "ending did not save");
                 checkDirectChapterStarts(g);
+                checkDeleteDialog(g);
                 Gdx.app.log("SMOKE", "PASS: chapter selection, cinematic-only story, click-only cinematic advance, Skip, chapter checkpoints, keybinds, guides, "
                     + battles + " encounters, "
                     + questions + " accepted quiz answers, checkpoint reload and ending");
@@ -141,6 +189,9 @@ final class DesktopSmoke {
         int chapter = g.run.stage;
         require(g.run.encounter == 0 && chapter == battles / 10, "unexpected chapter opening");
         if (chapter == 0 && g.panel == 0) {
+            if (!skipSecondFrameShown && g.skipHoverAt < 0) {
+                hoverSkip(g);
+            }
             if (frames == 20) capture("opening-typewriter");
             if (!skipSecondFrameShown && g.skipHoverAt >= 0
                 && TitleMenu.hoverArrowOffset(g.elapsed - g.skipHoverAt) == 2) {
@@ -148,9 +199,8 @@ final class DesktopSmoke {
                 skipSecondFrameShown = true;
             }
             if (g.elapsed - g.panelStartedAt < 5) return;
-            require(g.skipHoverAt >= 0, "cinematic Skip hover");
             require(skipSecondFrameShown, "Skip must reach its second animation frame on hover");
-            capture("opening-skip-hover");
+            if (g.skipHoverAt >= 0) capture("opening-skip-hover");
         } else {
             if (chapter > 0) {
                 var saved = g.saveStore.inspect(0).progress();
@@ -175,12 +225,20 @@ final class DesktopSmoke {
         if (chapter == 0) require(!g.saveStore.inspect(0).occupied(), "tutorial should precede first checkpoint");
     }
 
+    private void hoverSkip(GameScreen g) {
+        Vector2 skip = screen(g, SKIP_X + SKIP_WIDTH / 2f, SKIP_Y + SKIP_HEIGHT / 2f);
+        int x = Math.round(skip.x), y = Math.round(skip.y);
+        Gdx.input.setCursorPosition(x, y);
+        Gdx.input.getInputProcessor().mouseMoved(x, y);
+    }
+
     private void checkDirectChapterStarts(GameScreen g) {
         int artPixel = PixelArtViewport.ART_PIXEL;
         for (int chapter = 1; chapter < g.content.stages.size(); chapter++) {
             click(g, 290 * artPixel, (PixelArtViewport.ART_HEIGHT - 132) * artPixel);
             require(g.mode == Mode.CHAPTER_SELECT, "return to chapter selection");
-            click(g, CHAPTER_X + CHAPTER_WIDTH / 2f, chapterY(chapter) + CHAPTER_HEIGHT / 2f);
+            var card = MenuButton.CHAPTERS[chapter];
+            click(g, card.centerX(), card.centerY());
             require(g.mode == Mode.CINEMATIC && !g.tutorial && g.run.stage == chapter && g.run.encounter == 0,
                 "direct chapter start");
             require(g.learning.isEmpty(), "direct chapter must start a fresh run");
@@ -208,6 +266,22 @@ final class DesktopSmoke {
         require(g.mode == Mode.GAME && g.slot == 1, "chapter-start save restores its run");
     }
 
+    private void checkDeleteDialog(GameScreen g) {
+        var input = Gdx.input.getInputProcessor();
+        key(Input.Keys.ESCAPE);
+        key(Input.Keys.S);
+        click(g, 282 * PixelArtViewport.ART_PIXEL, (PixelArtViewport.ART_HEIGHT - 143) * PixelArtViewport.ART_PIXEL);
+        require(g.mode == Mode.SLOTS && g.slots.getFirst().occupied(), "occupied save row");
+        var trash = MenuButton.TRASH_1;
+        var p = screen(g, trash.centerX(), trash.centerY());
+        input.mouseMoved(Math.round(p.x), Math.round(p.y));
+        require(g.menuHover == trash, "trash button hover");
+        click(g, trash.centerX(), trash.centerY());
+        require(g.confirmDelete, "trash asks for confirmation");
+        click(g, MenuButton.CANCEL_DELETE.centerX(), MenuButton.CANCEL_DELETE.centerY());
+        require(!g.confirmDelete && g.saveStore.inspect(0).occupied(), "cancel preserves save");
+    }
+
     private void titleMenu(GameScreen g) {
         var input = Gdx.input.getInputProcessor();
         int artPixel = PixelArtViewport.ART_PIXEL;
@@ -228,16 +302,17 @@ final class DesktopSmoke {
             require(g.titleHover == null, "blank title background must not select a menu option");
             input.mouseMoved(x, y);
             require(g.titleHover == TitleMenu.Option.SETTINGS, "title Settings hover");
+            double hoverAt = g.titleHoverAt;
+            input.mouseMoved(x + 1, y);
+            require(g.titleHover == TitleMenu.Option.SETTINGS && g.titleHoverAt == hoverAt,
+                "mouse movement within Settings must not restart hover");
             return;
         }
+        if (g.titleHover != TitleMenu.Option.SETTINGS) input.mouseMoved(x, y);
         if (g.elapsed - g.titleHoverAt < 0.25) {
             frames--;
             return;
         }
-        double hoverAt = g.titleHoverAt;
-        input.mouseMoved(x + 1, y);
-        require(g.titleHover == TitleMenu.Option.SETTINGS && g.titleHoverAt == hoverAt,
-            "mouse movement within Settings must not restart hover");
         capture("title-hover");
         input.touchDown(x, y, 0, Input.Buttons.LEFT);
         input.touchUp(x, y, 0, Input.Buttons.LEFT);
@@ -383,7 +458,11 @@ final class DesktopSmoke {
             + g.templates.get(glyph).size() + " in " + g.mode);
     }
 
-    private void key(int key) { Gdx.input.getInputProcessor().keyDown(key); }
+    private void key(int key) {
+        var input = Gdx.input.getInputProcessor();
+        input.keyDown(key);
+        input.keyUp(key);
+    }
 
     private void skipCinematic(GameScreen g) {
         click(g, SKIP_X + SKIP_WIDTH / 2f, SKIP_Y + SKIP_HEIGHT / 2f);

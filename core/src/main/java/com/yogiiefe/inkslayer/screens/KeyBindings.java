@@ -42,10 +42,14 @@ final class KeyBindings {
             || action.alternate != 0 && keys.get(action) == action.defaultKey && Gdx.input.isKeyPressed(action.alternate);
     }
 
+    String keycap(Action action) {
+        String name = Keys.toString(keys.get(action));
+        return action == Action.UNDO ? "Ctrl+" + name : name;
+    }
+
     String label(Action action) {
         int primary = keys.get(action);
-        String label = Keys.toString(primary);
-        if (action == Action.UNDO) return "Ctrl+" + label;
+        String label = keycap(action);
         return primary == action.defaultKey && action.alternate != 0
             ? label + " / " + Keys.toString(action.alternate) : label;
     }
@@ -64,6 +68,20 @@ final class KeyBindings {
         } catch (com.badlogic.gdx.utils.GdxRuntimeException ex) {
             Gdx.app.error("Keybinds", "Could not save keybind", ex);
             return "Changed for this session. Could not save.";
+        }
+    }
+
+    String reset() {
+        for (Action action : Action.values()) {
+            keys.put(action, action.defaultKey);
+            preferences.remove(action.name());
+        }
+        try {
+            preferences.flush();
+            return "";
+        } catch (com.badlogic.gdx.utils.GdxRuntimeException ex) {
+            Gdx.app.error("Keybinds", "Could not save default keybinds", ex);
+            return "Defaults restored for this session.";
         }
     }
 

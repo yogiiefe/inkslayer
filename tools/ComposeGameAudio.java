@@ -33,11 +33,20 @@ class ComposeGameAudio {
             new int[]{0, 7, 12, 15, 12, 7, 0, 6, 12, 15, 18, 15, 7, 6, 3, 0}, .59);
 
         cue(sfx, "ui", .09, new int[]{76, 81}, .04);
+        sliderTick(sfx);
         cue(sfx, "stroke", .045, new int[]{54, 51}, .53);
         cue(sfx, "accept", .23, new int[]{67, 72, 76}, .08);
         cue(sfx, "retry", .27, new int[]{60, 55, 52}, .2);
         cue(sfx, "victory", .72, new int[]{60, 64, 67, 72, 76, 79}, .08);
         skipChime(sfx);
+    }
+
+    private static void sliderTick(Path directory) throws IOException {
+        double[] samples = new double[(int) Math.round(.055 * RATE)];
+        tone(samples, 0, .045, 72, .16, .002, .037);
+        tone(samples, 0, .023, 84, .045, .002, .017);
+        percussion(samples, 0, .024, .025, false);
+        write(directory.resolve("slider.wav"), samples);
     }
 
     private static void skipChime(Path directory) throws IOException {

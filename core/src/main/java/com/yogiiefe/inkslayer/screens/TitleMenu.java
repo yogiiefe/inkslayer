@@ -75,7 +75,7 @@ final class TitleMenu implements Disposable {
             width * ART_PIXEL, height * ART_PIXEL, sourceX, sourceY, width, height, false, false);
     }
 
-    private static Texture load(String path) {
+    static Texture load(String path) {
         var texture = new Texture(Gdx.files.internal(path));
         texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
         return texture;

@@ -12,7 +12,7 @@ import java.util.Locale;
 /** Owns music streaming, short effects and application-wide volume preferences. */
 public final class GameAudio implements Disposable {
     public enum Track { MENU, STAGE1, STAGE2, STAGE3, STAGE4, BOSS, STORY }
-    public enum Cue { UI, STROKE, ACCEPT, RETRY, VICTORY, SKIP }
+    public enum Cue { UI, SLIDER, STROKE, ACCEPT, RETRY, VICTORY, SKIP }
     public enum Channel { MASTER, SFX, BGM }
 
     private static final float STORY_FADE_SECONDS = 1f;

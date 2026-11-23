@@ -31,15 +31,13 @@ import java.util.function.Predicate;
 
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.UI_HEIGHT;
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.UI_WIDTH;
+import static com.yogiiefe.inkslayer.screens.PixelArtViewport.ART_PIXEL;
 
 public final class GameScreen extends ScreenAdapter {
     enum Mode { TITLE, CHAPTER_SELECT, SLOTS, SETTINGS, KEYBINDS, CINEMATIC, GAME, PAUSE, JOURNAL, PRACTICE }
     enum GlossaryTab { KANJI, HIRAGANA, KATAKANA }
     static final int CANVAS_X = 0, CANVAS_WIDTH = 1280, CANVAS_TOP = 260;
     static final int GUIDE_SIZE = 176, GUIDE_X = 552, GUIDE_Y = 54;
-    static final int KEYBIND_X = 410, KEYBIND_WIDTH = 460, KEYBIND_HEIGHT = 40;
-    static final int CHAPTER_X = 415, CHAPTER_WIDTH = 450, CHAPTER_HEIGHT = 52;
-    static final int CHAPTER_BACK_X = 490, CHAPTER_BACK_Y = 124, CHAPTER_BACK_WIDTH = 300, CHAPTER_BACK_HEIGHT = 42;
     // Padded clickable area around the artwork in the 320x180 SkipAnim.png sheet.
     static final int SKIP_WIDTH = 132, SKIP_HEIGHT = 44;
     static final int SKIP_X = UI_WIDTH - SKIP_WIDTH - 8, SKIP_Y = UI_HEIGHT - SKIP_HEIGHT - 8;
@@ -65,11 +63,14 @@ public final class GameScreen extends ScreenAdapter {
     Mode mode = Mode.TITLE;
     Mode settingsReturn = Mode.TITLE, journalReturn = Mode.GAME;
     TitleMenu.Option titleSelection = TitleMenu.Option.NEW, titleHover;
+    MenuButton menuFocus, menuHover, menuPress, keyboardPress;
+    private int activationKey = -1;
+    boolean showMenuFocus;
     List<SaveStore.Slot> slots = List.of();
     int slot = -1, slotSelection;
     boolean confirmDelete;
     boolean ending, endingPending, completed, assisted, strict, bindingKey;
-    int panel, chapterSelection, setting, journalPage;
+    int panel, journalPage;
     Action selectedBinding = Action.LEFT;
     GlossaryTab glossaryTab = GlossaryTab.KANJI;
     double effectTime;
@@ -86,6 +87,9 @@ public final class GameScreen extends ScreenAdapter {
     String kanaInput = "";
     int tileSelection;
     private int examIndex, pointer = -1;
+    private int menuPointer = -1;
+    private float sliderGrabOffset;
+    private double nextSliderCue;
     private double correctTime = -1;
     private final List<FillQuiz> bossQuizzes;
 
@@ -173,8 +177,7 @@ public final class GameScreen extends ScreenAdapter {
     static int chapterY(int chapter) { return 453 - 73 * chapter; }
 
     private void openChapterSelect() {
-        chapterSelection = 0;
-        mode = Mode.CHAPTER_SELECT;
+        showMenu(Mode.CHAPTER_SELECT);
     }
 
     private void startNewGame(int chapter) {
@@ -199,7 +202,7 @@ public final class GameScreen extends ScreenAdapter {
         confirmDelete = false;
         slotSelection = 0;
         saveMessage = "";
-        mode = Mode.SLOTS;
+        showMenu(Mode.SLOTS);
     }
 
     private void refreshSlots() {
@@ -210,6 +213,7 @@ public final class GameScreen extends ScreenAdapter {
         if (!slots.get(index).occupied()) return;
         slotSelection = index;
         confirmDelete = true;
+        showMenu(Mode.SLOTS);
     }
 
     private void deleteSelectedSlot() {
@@ -222,6 +226,7 @@ public final class GameScreen extends ScreenAdapter {
             saveMessage = "Could not delete slot " + (slotSelection + 1) + ".";
         }
         refreshSlots();
+        showMenu(Mode.SLOTS);
     }
 
     private void selectSlot(int selected) {
@@ -483,12 +488,14 @@ public final class GameScreen extends ScreenAdapter {
     @Override public void resize(int width, int height) {
         viewport.update(width, height, true);
         titleHover = null;
+        clearMenuPointer();
         cancelStroke();
     }
 
     @Override public void pause() {
         cancelStroke();
-        if (mode == Mode.GAME) mode = Mode.PAUSE;
+        clearMenuPointer();
+        if (mode == Mode.GAME) showMenu(Mode.PAUSE);
         audio.pause();
     }
 
@@ -506,35 +513,28 @@ public final class GameScreen extends ScreenAdapter {
 
     private void settings(Mode from) {
         settingsReturn = from;
-        setting = 0;
         settingsMessage = "";
-        mode = Mode.SETTINGS;
+        showMenu(Mode.SETTINGS);
     }
-
-    static int keybindY(Action action) {
-        return 468 - 51 * action.ordinal();
-    }
-
-    static int volumeY(int index) { return 418 - index * 57; }
 
     private void openKeybinds() {
         bindingKey = false;
         selectedBinding = Action.LEFT;
         bindingMessage = "";
-        mode = Mode.KEYBINDS;
+        showMenu(Mode.KEYBINDS);
     }
 
     private void closeSettings() {
         try {
             audio.saveSettings();
-            mode = settingsReturn;
+            showMenu(settingsReturn);
         } catch (com.badlogic.gdx.utils.GdxRuntimeException ex) {
             if (!settingsMessage.isEmpty()) {
-                mode = settingsReturn;
+                showMenu(settingsReturn);
                 return;
             }
             Gdx.app.error("Settings", "Could not save volume settings", ex);
-            settingsMessage = "Could not save volume. Choose Back again to keep changes for this session.";
+            settingsMessage = "Volume could not save. Choose Back again.";
         }
     }
 
@@ -560,19 +560,28 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private void back() {
+        clearMenuPointer();
         switch (mode) {
             case TITLE -> {}
             case CHAPTER_SELECT -> menu();
-            case SLOTS -> { if (confirmDelete) confirmDelete = false; else menu(); }
+            case SLOTS -> {
+                if (confirmDelete) {
+                    confirmDelete = false;
+                    showMenu(Mode.SLOTS);
+                } else menu();
+            }
             case SETTINGS -> closeSettings();
             case KEYBINDS -> {
                 if (bindingKey) { bindingKey = false; bindingMessage = ""; }
-                else mode = Mode.SETTINGS;
+                else {
+                    showMenu(Mode.SETTINGS);
+                    menuFocus = MenuButton.KEYBINDS;
+                }
             }
             case CINEMATIC -> skipCinematic();
-            case GAME -> { cancelStroke(); mode = Mode.PAUSE; }
+            case GAME -> { cancelStroke(); showMenu(Mode.PAUSE); }
             case PAUSE -> mode = Mode.GAME;
-            case JOURNAL -> mode = journalReturn;
+            case JOURNAL -> showMenu(journalReturn);
             case PRACTICE -> { clearDrawing(); mode = Mode.JOURNAL; }
         }
     }
@@ -622,81 +631,123 @@ public final class GameScreen extends ScreenAdapter {
         showGuide();
     }
 
-    private void changeVolume(int index, int value) {
-        setting = index;
-        Channel channel = Channel.values()[index];
-        audio.volume(channel, value);
-        if (channel != Channel.BGM) audio.play(Cue.UI);
+    private void showMenu(Mode next) {
+        mode = next;
+        clearMenuPointer();
+        showMenuFocus = false;
+        var controls = menuButtons();
+        menuFocus = controls.length == 0 ? null : controls[0];
     }
 
-    private boolean adjustSlider(float x, float y, boolean grab) {
-        for (int index = 0; index < 3; index++) {
-            if (hit(x, y, 496, volumeY(index) - 12, 320, 36)) {
-                changeVolume(index, Math.round((x - 496) / 3.2f));
-                return grab;
-            }
+    private MenuButton[] menuButtons() {
+        return switch (mode) {
+            case CHAPTER_SELECT -> MenuButton.CHAPTERS;
+            case SLOTS -> confirmDelete ? MenuButton.DELETE_DIALOG : MenuButton.SLOTS;
+            case SETTINGS -> MenuButton.SETTINGS;
+            case KEYBINDS -> MenuButton.BINDINGS;
+            case PAUSE -> MenuButton.PAUSE;
+            default -> MenuButton.NONE;
+        };
+    }
+
+    private boolean menuEnabled(MenuButton control) {
+        return switch (control) {
+            case TRASH_1, TRASH_2, TRASH_3 -> slots.get(control.ordinal() - MenuButton.TRASH_1.ordinal()).occupied();
+            default -> true;
+        };
+    }
+
+    private MenuButton menuAt(float x, float y) {
+        for (MenuButton control : menuButtons()) {
+            int slotIndex = control.slotIndex();
+            int extraWidth = slotIndex >= 0 && !slots.get(slotIndex).occupied() ? MenuButton.EMPTY_SLOT_EXTRA_WIDTH : 0;
+            if (control.contains(x, y, extraWidth) && menuEnabled(control)) return control;
         }
-        return false;
+        return null;
+    }
+
+    private void clearMenuPointer() {
+        menuPointer = -1;
+        activationKey = -1;
+        keyboardPress = menuPress = menuHover = null;
+    }
+
+    private void moveMenuFocus(int direction, boolean includeTrash) {
+        var controls = menuButtons();
+        int index = java.util.Arrays.asList(controls).indexOf(menuFocus);
+        if (index < 0 && direction < 0) index = 0;
+        do {
+            index = Math.floorMod(index + direction, controls.length);
+        } while (!menuEnabled(controls[index]) || !includeTrash && switch (controls[index]) {
+            case TRASH_1, TRASH_2, TRASH_3 -> true;
+            default -> false;
+        });
+        menuFocus = controls[index];
+    }
+
+    private void moveChapterFocus(int axis, int direction) {
+        int index = java.util.Arrays.asList(MenuButton.CHAPTERS).indexOf(menuFocus);
+        if (index >= 0 && index < 4) menuFocus = MenuButton.CHAPTERS[index ^ axis];
+        else moveMenuFocus(direction, false);
+    }
+
+    private void changeVolume(int index, int value, boolean start) {
+        Channel channel = Channel.values()[index];
+        boolean changed = audio.volume(channel) != value;
+        if (changed) audio.volume(channel, value);
+        if (start || changed && elapsed >= nextSliderCue) {
+            nextSliderCue = elapsed + .07;
+            audio.play(Cue.SLIDER);
+        }
+    }
+
+    private void dragSlider(float x, boolean start) {
+        float span = MenuButton.TRACK_END - MenuButton.TRACK_START;
+        float pointer = x / ART_PIXEL;
+        if (start) {
+            int value = audio.volume(Channel.values()[menuPress.sliderIndex()]);
+            float center = MenuButton.TRACK_START + value * span / 100f;
+            int handleLeft = Math.round(center) - 2;
+            sliderGrabOffset = pointer >= handleLeft && pointer < handleLeft + 5 ? pointer - center : 0;
+        }
+        float position = (pointer - sliderGrabOffset - MenuButton.TRACK_START) / span;
+        changeVolume(menuPress.sliderIndex(), Math.clamp(Math.round(position * 100), 0, 100), start);
+    }
+
+    private void activateMenu(MenuButton control) {
+        if (control == null || control.sliderIndex() >= 0) return;
+        audio.play(Cue.UI);
+        switch (control) {
+            case BACK, CANCEL_DELETE, RESUME -> back();
+            case ELEMENTS, PETS, WEATHER, FOOD -> startNewGame(control.ordinal() - MenuButton.ELEMENTS.ordinal());
+            case SLOT_1, SLOT_2, SLOT_3 -> selectSlot(control.ordinal() - MenuButton.SLOT_1.ordinal());
+            case TRASH_1, TRASH_2, TRASH_3 -> requestDelete(control.ordinal() - MenuButton.TRASH_1.ordinal());
+            case CONFIRM_DELETE -> deleteSelectedSlot();
+            case DISPLAY -> cycleDisplay(1);
+            case STROKE -> strict = !strict;
+            case KEYBINDS -> openKeybinds();
+            case LEFT, RIGHT, CONTINUE, HELP, CLEAR, UNDO -> {
+                selectedBinding = Action.values()[control.ordinal() - MenuButton.LEFT.ordinal()];
+                bindingKey = true;
+                bindingMessage = "";
+            }
+            case DEFAULT -> {
+                bindingKey = false;
+                bindingMessage = bindings.reset();
+            }
+            case GLOSSARIUM -> journal(mode);
+            case PAUSE_SETTINGS -> settings(mode);
+            case SAVE_MENU -> { if (tutorial || save()) menu(); }
+            case MASTER, SFX, BGM -> {}
+        }
     }
 
     private void click(float x, float y) {
         switch (mode) {
             case TITLE -> title(TitleMenu.Option.at(x, y));
-            case CHAPTER_SELECT -> {
-                if (hit(x, y, CHAPTER_BACK_X, CHAPTER_BACK_Y, CHAPTER_BACK_WIDTH, CHAPTER_BACK_HEIGHT)) back();
-                else for (int chapter = 0; chapter < content.stages.size(); chapter++) {
-                    if (hit(x, y, CHAPTER_X, chapterY(chapter), CHAPTER_WIDTH, CHAPTER_HEIGHT)) {
-                        chapterSelection = chapter;
-                        startNewGame(chapter);
-                        break;
-                    }
-                }
-            }
-            case SLOTS -> {
-                if (confirmDelete) {
-                    if (hit(x, y, 414, 283, 200, 44)) confirmDelete = false;
-                    else if (hit(x, y, 666, 283, 200, 44)) deleteSelectedSlot();
-                    return;
-                }
-                if (hit(x, y, 490, 116, 300, 44)) back();
-                else for (int i = 0; i < slots.size(); i++) {
-                    int row = 425 - i * 90;
-                    if (slots.get(i).occupied() && hit(x, y, 840, row + 13, 100, 42)) {
-                        requestDelete(i);
-                        break;
-                    }
-                    if (hit(x, y, 320, row, 640, 68)) {
-                        selectSlot(i);
-                        break;
-                    }
-                }
-            }
-            case SETTINGS -> {
-                if (hit(x, y, 490, 136, 300, 42)) back();
-                else if (hit(x, y, 490, 204, 300, 40)) strict = !strict;
-                else if (hit(x, y, 490, 473, 300, 44)) { setting = 3; cycleDisplay(1); }
-                else if (hit(x, y, 490, 250, 300, 40)) { setting = 4; openKeybinds(); }
-            }
-            case KEYBINDS -> {
-                if (hit(x, y, 490, 135, 300, 42)) { bindingKey = false; mode = Mode.SETTINGS; }
-                else for (Action action : Action.values()) {
-                    if (hit(x, y, KEYBIND_X, keybindY(action), KEYBIND_WIDTH, KEYBIND_HEIGHT)) {
-                        selectedBinding = action;
-                        bindingKey = true;
-                        bindingMessage = "";
-                        break;
-                    }
-                }
-            }
             case CINEMATIC -> {
                 if (hit(x, y, SKIP_X, SKIP_Y, SKIP_WIDTH, SKIP_HEIGHT)) skipCinematic();
                 else if (hit(x, y, 0, 0, UI_WIDTH, UI_HEIGHT)) advanceCinematic();
-            }
-            case PAUSE -> {
-                if (hit(x, y, 460, 366, 360, 46)) back();
-                else if (hit(x, y, 460, 307, 360, 46)) journal(mode);
-                else if (hit(x, y, 460, 248, 360, 46)) settings(mode);
-                else if (hit(x, y, 460, 189, 360, 46) && (tutorial || save())) menu();
             }
             case JOURNAL -> {
                 int count = journalSize();
@@ -724,10 +775,13 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private final class Controls extends InputAdapter {
-        private boolean slider;
-
         @Override public boolean keyDown(int key) {
-            if (key == Input.Keys.ESCAPE) { back(); return true; }
+            if (keyboardPress != null && key == activationKey) return true;
+            if (key == Input.Keys.ESCAPE) {
+                if (menuButtons().length > 0) audio.play(Cue.UI);
+                back();
+                return true;
+            }
             switch (mode) {
                 case TITLE -> {
                     titleHover = null;
@@ -735,38 +789,9 @@ public final class GameScreen extends ScreenAdapter {
                     else if (key == Input.Keys.DOWN || key == Input.Keys.TAB) titleSelection = titleSelection.step(1);
                     else if (key == Input.Keys.ENTER || key == Input.Keys.SPACE) title(titleSelection);
                 }
-                case CHAPTER_SELECT -> {
-                    if (key == Input.Keys.UP || key == Input.Keys.DOWN) {
-                        chapterSelection = Math.floorMod(chapterSelection + (key == Input.Keys.UP ? -1 : 1), content.stages.size());
-                    } else if (key == Input.Keys.ENTER || key == Input.Keys.SPACE) startNewGame(chapterSelection);
-                }
-                case SLOTS -> {
-                    if (confirmDelete) {
-                        if (key == Input.Keys.ENTER) deleteSelectedSlot();
-                    } else if (key == Input.Keys.FORWARD_DEL) requestDelete(slotSelection);
-                    else if (key == Input.Keys.UP || key == Input.Keys.DOWN) {
-                        slotSelection = Math.floorMod(slotSelection + (key == Input.Keys.UP ? -1 : 1), 3);
-                    } else if (key == Input.Keys.ENTER) selectSlot(slotSelection);
-                }
-                case SETTINGS -> {
-                    if (key == Input.Keys.UP || key == Input.Keys.DOWN) setting = Math.floorMod(setting + (key == Input.Keys.UP ? -1 : 1), 5);
-                    else if (key == Input.Keys.LEFT || key == Input.Keys.RIGHT) {
-                        int direction = key == Input.Keys.LEFT ? -1 : 1;
-                        if (setting == 3) cycleDisplay(direction);
-                        else if (setting < 3) changeVolume(setting, Math.clamp(audio.volume(Channel.values()[setting]) + direction * 5, 0, 100));
-                    } else if (key == Input.Keys.ENTER) {
-                        if (setting == 4) openKeybinds();
-                        else back();
-                    }
-                }
-                case KEYBINDS -> keybindKey(key);
+                case CHAPTER_SELECT, SLOTS, SETTINGS, KEYBINDS, PAUSE -> menuKey(key);
                 case CINEMATIC -> {
                     if (key == Input.Keys.S) skipCinematic();
-                }
-                case PAUSE -> {
-                    if (key == Input.Keys.ENTER) back();
-                    else if (key == Input.Keys.TAB) journal(mode);
-                    else if (key == Input.Keys.S && (tutorial || save())) menu();
                 }
                 case JOURNAL -> {
                     int size = journalSize();
@@ -783,17 +808,56 @@ public final class GameScreen extends ScreenAdapter {
             return true;
         }
 
-        private void keybindKey(int key) {
-            if (bindingKey) {
+        @Override public boolean keyUp(int key) {
+            if (keyboardPress == null || activationKey != key) return false;
+            var pressed = keyboardPress;
+            keyboardPress = null;
+            activationKey = -1;
+            if (menuFocus == pressed) activateMenu(pressed);
+            return true;
+        }
+
+        private void menuKey(int key) {
+            clearMenuPointer();
+            showMenuFocus = true;
+            if (mode == Mode.KEYBINDS && bindingKey) {
                 bindingMessage = bindings.bind(selectedBinding, key);
                 bindingKey = !bindings.matches(selectedBinding, key);
-            } else if (key == Input.Keys.ENTER) {
-                bindingKey = true;
-                bindingMessage = "";
-            } else if (key == Input.Keys.UP || key == Input.Keys.DOWN) {
-                var actions = Action.values();
-                selectedBinding = actions[Math.floorMod(selectedBinding.ordinal() + (key == Input.Keys.UP ? -1 : 1), actions.length)];
-                bindingMessage = "";
+                if (!bindingKey) audio.play(Cue.UI);
+                return;
+            }
+            switch (key) {
+                case Input.Keys.UP, Input.Keys.DOWN, Input.Keys.TAB -> {
+                    if (mode == Mode.PAUSE && key == Input.Keys.TAB) activateMenu(MenuButton.GLOSSARIUM);
+                    else if (mode == Mode.CHAPTER_SELECT && key != Input.Keys.TAB)
+                        moveChapterFocus(2, key == Input.Keys.UP ? -1 : 1);
+                    else moveMenuFocus(key == Input.Keys.UP ? -1 : 1, key == Input.Keys.TAB);
+                }
+                case Input.Keys.LEFT, Input.Keys.RIGHT -> {
+                    int direction = key == Input.Keys.LEFT ? -1 : 1;
+                    if (mode == Mode.SETTINGS && menuFocus != null && menuFocus.sliderIndex() >= 0) {
+                        int index = menuFocus.sliderIndex();
+                        int value = audio.volume(Channel.values()[index]);
+                        changeVolume(index, Math.clamp(value + direction * 5, 0, 100), false);
+                    } else if (mode == Mode.SETTINGS && menuFocus == MenuButton.DISPLAY) {
+                        audio.play(Cue.UI);
+                        cycleDisplay(direction);
+                    } else if (mode == Mode.CHAPTER_SELECT) moveChapterFocus(1, direction);
+                    else if (mode != Mode.KEYBINDS) moveMenuFocus(direction, false);
+                }
+                case Input.Keys.ENTER, Input.Keys.SPACE -> {
+                    if (menuFocus != null && menuFocus.sliderIndex() < 0) {
+                        keyboardPress = menuFocus;
+                        activationKey = key;
+                    }
+                }
+                case Input.Keys.FORWARD_DEL -> {
+                    if (mode != Mode.SLOTS || confirmDelete || menuFocus == null) return;
+                    int row = menuFocus.slotIndex();
+                    if (row >= 0 && slots.get(row).occupied()) activateMenu(MenuButton.TRASH[row]);
+                }
+                case Input.Keys.S -> { if (mode == Mode.PAUSE) activateMenu(MenuButton.SAVE_MENU); }
+                default -> {}
             }
         }
 
@@ -842,32 +906,69 @@ public final class GameScreen extends ScreenAdapter {
                     titleHoverAt = elapsed;
                     if (hovered != null) audio.play(Cue.UI);
                 }
-            }
+            } else updateMenuHover(p);
             return true;
+        }
+
+        private void updateMenuHover(Vector2 p) {
+            var hovered = menuAt(p.x, p.y);
+            if (hovered != null) showMenuFocus = false;
+            if (hovered != menuHover && hovered != null && menuPress == null) {
+                audio.play(hovered.sliderIndex() >= 0 ? Cue.SLIDER : Cue.UI);
+            }
+            menuHover = hovered;
         }
 
         @Override public boolean touchDown(int x, int y, int index, int button) {
             if (button != Input.Buttons.LEFT) return false;
+            keyboardPress = null;
+            activationKey = -1;
             var p = point(x, y);
             mouseX = p.x;
             mouseY = p.y;
-            if (mode == Mode.SETTINGS && adjustSlider(p.x, p.y, true)) slider = true;
-            else if (!beginInk(p.x, p.y, index) && pointer == -1) click(p.x, p.y);
+            if (menuButtons().length > 0) {
+                if (menuPointer != -1) return true;
+                menuHover = menuAt(p.x, p.y);
+                menuPress = menuHover;
+                showMenuFocus = false;
+                if (menuPress != null) {
+                    menuPointer = index;
+                    menuFocus = menuPress;
+                    if (menuPress.sliderIndex() >= 0) dragSlider(p.x, true);
+                }
+            } else if (!beginInk(p.x, p.y, index) && pointer == -1) click(p.x, p.y);
             return true;
         }
 
         @Override public boolean touchDragged(int x, int y, int index) {
             var p = point(x, y);
-            if (slider && mode == Mode.SETTINGS) changeVolume(setting, Math.clamp(Math.round((p.x - 496) / 3.2f), 0, 100));
+            mouseX = p.x;
+            mouseY = p.y;
+            if (menuPointer == index && menuPress != null) {
+                if (menuPress.sliderIndex() >= 0) dragSlider(p.x, false);
+                menuHover = menuAt(p.x, p.y);
+            }
             moveInk(p.x, p.y, index);
             return true;
         }
 
         @Override public boolean touchUp(int x, int y, int index, int button) {
             if (button != Input.Buttons.LEFT) return false;
-            slider = false;
             var p = point(x, y);
+            if (menuPointer == index && menuPress != null) {
+                var pressed = menuPress;
+                menuHover = menuAt(p.x, p.y);
+                menuPress = null;
+                menuPointer = -1;
+                if (pressed == menuHover) activateMenu(pressed);
+            }
             endInk(p.x, p.y, index);
+            return true;
+        }
+
+        @Override public boolean touchCancelled(int x, int y, int index, int button) {
+            if (menuPointer == index) clearMenuPointer();
+            if (pointer == index) cancelStroke();
             return true;
         }
     }
