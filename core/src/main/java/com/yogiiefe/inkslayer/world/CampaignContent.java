@@ -130,7 +130,7 @@ public final class CampaignContent {
                 require(health > 0 && damage > 0, id + " has invalid combat parameters");
                 encounters.add(new Encounter(id, field(entry, "name"), element, attacks, health, damage, lesson));
             }
-            result.add(new Stage(field(stage, "name"), encounters, strings(array(stage, "opening", 3, 7))));
+            result.add(new Stage(field(stage, "name"), encounters, strings(array(stage, "opening", 3, 8))));
         }
         require(taught.equals(lessons.keySet()), "Every lesson must be taught before the final examination");
         return List.copyOf(result);

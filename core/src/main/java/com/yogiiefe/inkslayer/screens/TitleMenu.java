@@ -2,8 +2,10 @@ package com.yogiiefe.inkslayer.screens;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.utils.Disposable;
 
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.*;
@@ -42,9 +44,24 @@ final class TitleMenu implements Disposable {
     private static final double DIM_SECONDS = 0.14, ARROW_PERIOD = 0.6;
     private final Texture logo = load("INKSLAYER! logo.png");
     private final Texture layout = load("title-menu.png");
+    private final Texture monster = load("bg2.png");
+    private final Texture blink = load("bg1.png");
+    private final ShaderProgram monsterShader = new ShaderProgram(
+        Gdx.files.internal("shaders/title-monster.vert"), Gdx.files.internal("shaders/title-monster.frag"));
 
-    void draw(SpriteBatch batch, Option selected, Option hovered, double hoverAge) {
+    TitleMenu() {
+        if (!monsterShader.isCompiled()) throw new IllegalStateException(monsterShader.getLog());
+    }
+
+    void draw(SpriteBatch batch, Option selected, Option hovered, double hoverAge, double elapsed) {
         batch.setColor(Color.WHITE);
+        batch.setShader(monsterShader);
+        blink.bind(1);
+        Gdx.gl.glActiveTexture(GL20.GL_TEXTURE0);
+        monsterShader.setUniformi("u_blink", 1);
+        monsterShader.setUniformf("u_time", (float) elapsed);
+        drawRegion(batch, monster, 0, 0, ART_WIDTH, ART_HEIGHT, 0, 0);
+        batch.setShader(null);
         // Crop the transparent margins and place the artwork at its reference bounds.
         drawRegion(batch, logo, 11, 27, 175, 38, 9, 127);
         drawRegion(batch, layout, 9, 168, 59, 3, 9, 168);
@@ -82,6 +99,9 @@ final class TitleMenu implements Disposable {
     }
 
     @Override public void dispose() {
+        monsterShader.dispose();
+        blink.dispose();
+        monster.dispose();
         layout.dispose();
         logo.dispose();
     }

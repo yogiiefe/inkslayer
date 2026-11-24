@@ -17,7 +17,6 @@ import com.yogiiefe.inkslayer.screens.KeyBindings.Action;
 import com.yogiiefe.inkslayer.world.CampaignRun;
 import com.yogiiefe.inkslayer.world.CampaignRun.Phase;
 import java.util.List;
-import java.util.Locale;
 
 import static com.yogiiefe.inkslayer.screens.GameScreen.*;
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.*;
@@ -149,7 +148,7 @@ final class ScreenView implements Disposable {
         pixelArt.begin();
         if (g.mode == Mode.TITLE) ScreenUtils.clear(0, 0, 0, 1);
         batch.begin();
-        if (g.mode == Mode.TITLE) titleMenu.draw(batch, g.titleSelection, g.titleHover, g.elapsed - g.titleHoverAt);
+        if (g.mode == Mode.TITLE) titleMenu.draw(batch, g.titleSelection, g.titleHover, g.elapsed - g.titleHoverAt, g.elapsed);
         else if (g.mode == Mode.CINEMATIC) endingArt();
         else arenaArt();
         batch.end();
@@ -434,7 +433,7 @@ final class ScreenView implements Disposable {
         } else {
             box(0, 0, UI_WIDTH, 220, INK);
         }
-        String text = g.panels().get(g.panel).toUpperCase(Locale.ROOT);
+        String text = g.cinematicText();
         layout.setText(cinematicFont, text, Color.WHITE, 260 * ART_PIXEL, Align.center, true);
         for (var run : layout.runs) run.x = Math.round(run.x / ART_PIXEL) * ART_PIXEL;
         float textTop = (ART_HEIGHT - 77) * ART_PIXEL;

@@ -39,6 +39,7 @@ class ComposeGameAudio {
         cue(sfx, "retry", .27, new int[]{60, 55, 52}, .2);
         cue(sfx, "victory", .72, new int[]{60, 64, 67, 72, 76, 79}, .08);
         skipChime(sfx);
+        typewriterClick(sfx);
     }
 
     private static void sliderTick(Path directory) throws IOException {
@@ -55,6 +56,14 @@ class ComposeGameAudio {
         tone(samples, .045, .15, 84, .16, .004, .12);
         tone(samples, .105, .22, 88, .14, .004, .18);
         write(directory.resolve("skip.wav"), samples);
+    }
+
+    private static void typewriterClick(Path directory) throws IOException {
+        double[] samples = new double[(int) Math.round(.028 * RATE)];
+        percussion(samples, 0, .014, .14, false);
+        tone(samples, 0, .025, 65, .08, .001, .018);
+        tone(samples, .004, .012, 91, .035, .001, .009);
+        write(directory.resolve("typewriter.wav"), samples);
     }
 
     private static void song(Path directory, String name, int bpm, int[] roots, int[] melody, double beatMix)

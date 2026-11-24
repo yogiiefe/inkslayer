@@ -80,6 +80,8 @@ public final class GameScreen extends ScreenAdapter {
     double elapsed, playTime, panelStartedAt, titleHoverAt;
     double skipHoverAt = -1;
     boolean cinematicTextComplete;
+    private int previousCinematicReveal;
+    private boolean hussPanel;
     float mouseX = -1, mouseY = -1;
     String feedback = "", saveMessage = "", settingsMessage = "";
     String bindingMessage = "";
@@ -139,6 +141,7 @@ public final class GameScreen extends ScreenAdapter {
                 if (correctTime <= 0) nextQuiz();
             }
         } else if (mode == Mode.CINEMATIC) {
+            playCinematicTyping();
             if (!hit(mouseX, mouseY, SKIP_X, SKIP_Y, SKIP_WIDTH, SKIP_HEIGHT)) skipHoverAt = -1;
             else if (skipHoverAt < 0) skipHoverAt = elapsed;
         }
@@ -281,33 +284,68 @@ public final class GameScreen extends ScreenAdapter {
         ending = finalScene;
         mode = Mode.CINEMATIC;
         panel = 0;
-        panelStartedAt = elapsed;
-        cinematicTextComplete = false;
+        startCinematicPanel();
         skipHoverAt = -1;
         saveMessage = "";
         audio.music(Track.STORY);
     }
 
     private void nextPanel() {
+        if (panel + 1 < panels().size()) {
+            panel++;
+            startCinematicPanel();
+        } else finishCinematic();
+    }
+
+    private void startCinematicPanel() {
+        audio.stop(Cue.HUSS);
         panelStartedAt = elapsed;
         cinematicTextComplete = false;
-        if (panel + 1 < panels().size()) panel++;
-        else finishCinematic();
+        previousCinematicReveal = 0;
+        hussPanel = cinematicText().equals("HUSS HUSS HUSS");
+        if (hussPanel) {
+            audio.stop(Cue.TYPEWRITER);
+            audio.play(Cue.HUSS);
+        }
     }
 
     int cinematicVisibleCharacters() {
-        String text = panels().get(panel).toUpperCase(Locale.ROOT);
-        return cinematicTextComplete ? text.codePointCount(0, text.length())
-            : (int) ((elapsed - panelStartedAt) * 28);
+        if (!cinematicTextComplete) return (int) ((elapsed - panelStartedAt) * 28);
+        String text = cinematicText();
+        return text.codePointCount(0, text.length());
+    }
+
+    String cinematicText() {
+        return panels().get(panel).toUpperCase(Locale.ROOT);
+    }
+
+    private void playCinematicTyping() {
+        if (hussPanel || cinematicTextComplete) return;
+        String text = cinematicText();
+        int visible = Math.min(cinematicVisibleCharacters(), text.codePointCount(0, text.length()));
+        if (visible <= previousCinematicReveal) return;
+
+        int start = text.offsetByCodePoints(0, previousCinematicReveal);
+        int end = text.offsetByCodePoints(start, visible - previousCinematicReveal);
+        previousCinematicReveal = visible;
+        for (int index = start; index < end;) {
+            int character = text.codePointAt(index);
+            if (!Character.isWhitespace(character)) {
+                audio.play(Cue.TYPEWRITER);
+                return;
+            }
+            index += Character.charCount(character);
+        }
     }
 
     private void advanceCinematic() {
-        String text = panels().get(panel).toUpperCase(Locale.ROOT);
+        String text = cinematicText();
         if (cinematicVisibleCharacters() < text.codePointCount(0, text.length())) cinematicTextComplete = true;
         else nextPanel();
     }
 
     private void finishCinematic() {
+        audio.stop(Cue.HUSS);
         if (ending) {
             endingPending = false;
             completed = true;
@@ -501,7 +539,10 @@ public final class GameScreen extends ScreenAdapter {
         audio.pause();
     }
 
-    @Override public void resume() { audio.resume(); }
+    @Override public void resume() {
+        audio.resume();
+        if (mode == Mode.CINEMATIC && hussPanel) audio.play(Cue.HUSS);
+    }
     @Override public void hide() { Gdx.input.setInputProcessor(null); }
     @Override public void dispose() { audio.dispose(); view.dispose(); }
 

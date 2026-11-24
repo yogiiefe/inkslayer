@@ -12,7 +12,7 @@ import java.util.Locale;
 /** Owns music streaming, short effects and application-wide volume preferences. */
 public final class GameAudio implements Disposable {
     public enum Track { MENU, STAGE1, STAGE2, STAGE3, STAGE4, BOSS, STORY }
-    public enum Cue { UI, SLIDER, STROKE, ACCEPT, RETRY, VICTORY, SKIP }
+    public enum Cue { UI, SLIDER, STROKE, ACCEPT, RETRY, VICTORY, SKIP, TYPEWRITER, HUSS }
     public enum Channel { MASTER, SFX, BGM }
 
     private static final float STORY_FADE_SECONDS = 1f;
@@ -82,10 +82,14 @@ public final class GameAudio implements Disposable {
         if (paused || volume == 0) return;
         Sound sound = sounds.computeIfAbsent(cue, item ->
             Gdx.audio.newSound(Gdx.files.internal("audio/sfx/" + key(item) + ".wav")));
-        Long previous = voices.remove(cue);
-        if (previous != null) sound.stop(previous);
-        long voice = sound.play(volume);
+        stop(cue);
+        long voice = cue == Cue.HUSS ? sound.loop(volume) : sound.play(volume);
         if (voice >= 0) voices.put(cue, voice);
+    }
+
+    public void stop(Cue cue) {
+        Long voice = voices.remove(cue);
+        if (voice != null) sounds.get(cue).stop(voice);
     }
 
     public int volume(Channel channel) {
