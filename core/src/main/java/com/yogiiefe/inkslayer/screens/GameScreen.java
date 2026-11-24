@@ -32,6 +32,7 @@ import java.util.function.Predicate;
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.UI_HEIGHT;
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.UI_WIDTH;
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.ART_PIXEL;
+import static com.yogiiefe.inkslayer.screens.PixelArtViewport.ART_HEIGHT;
 
 public final class GameScreen extends ScreenAdapter {
     enum Mode { TITLE, CHAPTER_SELECT, SLOTS, SETTINGS, KEYBINDS, CINEMATIC, GAME, PAUSE, JOURNAL, PRACTICE }
@@ -71,6 +72,7 @@ public final class GameScreen extends ScreenAdapter {
     boolean confirmDelete;
     boolean ending, endingPending, completed, assisted, strict, bindingKey;
     int panel, journalPage;
+    int keybindScroll;
     Action selectedBinding = Action.LEFT;
     GlossaryTab glossaryTab = GlossaryTab.KANJI;
     double effectTime;
@@ -519,6 +521,7 @@ public final class GameScreen extends ScreenAdapter {
 
     private void openKeybinds() {
         bindingKey = false;
+        keybindScroll = 0;
         selectedBinding = Action.LEFT;
         bindingMessage = "";
         showMenu(Mode.KEYBINDS);
@@ -658,7 +661,14 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private MenuButton menuAt(float x, float y) {
+        boolean inKeybinds = mode == Mode.KEYBINDS;
+        if (inKeybinds && MenuButton.KEYBIND_SCROLL.contains(x, y, 0)) return MenuButton.KEYBIND_SCROLL;
+        if (inKeybinds && MenuButton.inKeybindList(x, y)) {
+            float rowOffset = ART_HEIGHT - y / ART_PIXEL - MenuButton.LEFT.top + keybindScroll;
+            return MenuButton.BINDINGS[(int) (rowOffset / MenuButton.LEFT.height)];
+        }
         for (MenuButton control : menuButtons()) {
+            if (inKeybinds && control.bindingIndex() >= 0) continue;
             int slotIndex = control.slotIndex();
             int extraWidth = slotIndex >= 0 && !slots.get(slotIndex).occupied() ? MenuButton.EMPTY_SLOT_EXTRA_WIDTH : 0;
             if (control.contains(x, y, extraWidth) && menuEnabled(control)) return control;
@@ -683,6 +693,7 @@ public final class GameScreen extends ScreenAdapter {
             default -> false;
         });
         menuFocus = controls[index];
+        if (mode == Mode.KEYBINDS) revealBinding(menuFocus);
     }
 
     private void moveChapterFocus(int axis, int direction) {
@@ -695,27 +706,63 @@ public final class GameScreen extends ScreenAdapter {
         Channel channel = Channel.values()[index];
         boolean changed = audio.volume(channel) != value;
         if (changed) audio.volume(channel, value);
+        sliderCue(changed, start);
+    }
+
+    private void sliderCue(boolean changed, boolean start) {
         if (start || changed && elapsed >= nextSliderCue) {
             nextSliderCue = elapsed + .07;
             audio.play(Cue.SLIDER);
         }
     }
 
-    private void dragSlider(float x, boolean start) {
-        float span = MenuButton.TRACK_END - MenuButton.TRACK_START;
-        float pointer = x / ART_PIXEL;
+    private float sliderPosition(float pointer, float min, float max, float center, int handleSize, boolean start) {
         if (start) {
-            int value = audio.volume(Channel.values()[menuPress.sliderIndex()]);
-            float center = MenuButton.TRACK_START + value * span / 100f;
-            int handleLeft = Math.round(center) - 2;
-            sliderGrabOffset = pointer >= handleLeft && pointer < handleLeft + 5 ? pointer - center : 0;
+            int handleStart = Math.round(center) - handleSize / 2;
+            sliderGrabOffset = pointer >= handleStart && pointer < handleStart + handleSize ? pointer - center : 0;
         }
-        float position = (pointer - sliderGrabOffset - MenuButton.TRACK_START) / span;
-        changeVolume(menuPress.sliderIndex(), Math.clamp(Math.round(position * 100), 0, 100), start);
+        return Math.clamp((pointer - sliderGrabOffset - min) / (max - min), 0f, 1f);
+    }
+
+    private void dragMenuControl(float x, float y, boolean start) {
+        if (menuPress == MenuButton.KEYBIND_SCROLL) {
+            var rail = MenuButton.KEYBIND_SCROLL;
+            int size = MenuButton.KEYBIND_THUMB_HEIGHT;
+            float position = sliderPosition(ART_HEIGHT - y / ART_PIXEL,
+                rail.top + size / 2f, rail.top + rail.height - size / 2f,
+                MenuButton.keybindThumbTop(keybindScroll) + size / 2f, size, start);
+            scrollKeybinds(Math.round(position * MenuButton.KEYBIND_SCROLL_MAX), start);
+        } else if (menuPress.sliderIndex() >= 0) {
+            int index = menuPress.sliderIndex();
+            int min = MenuButton.TRACK_START, max = MenuButton.TRACK_END;
+            float center = min + audio.volume(Channel.values()[index]) * (max - min) / 100f;
+            float position = sliderPosition(x / ART_PIXEL, min, max, center, 5, start);
+            changeVolume(index, Math.round(position * 100), start);
+        }
+    }
+
+    private void scrollKeybinds(int position, boolean start) {
+        int scroll = Math.clamp(position, 0, MenuButton.KEYBIND_SCROLL_MAX);
+        sliderCue(scroll != keybindScroll, start);
+        keybindScroll = scroll;
+        if (!bindingKey && menuFocus != null && menuFocus.bindingIndex() >= 0) {
+            int rowHeight = MenuButton.LEFT.height;
+            int first = scroll / rowHeight;
+            int last = (scroll + MenuButton.KEYBIND_LIST_HEIGHT - 1) / rowHeight;
+            menuFocus = MenuButton.BINDINGS[Math.clamp(menuFocus.bindingIndex(), first, last)];
+        }
+    }
+
+    private void revealBinding(MenuButton row) {
+        if (row.bindingIndex() < 0) return;
+        int top = row.top - keybindScroll;
+        if (top < MenuButton.LEFT.top) keybindScroll = row.top - MenuButton.LEFT.top;
+        else if (top + row.height > MenuButton.KEYBIND_LIST_END)
+            keybindScroll = row.top + row.height - MenuButton.KEYBIND_LIST_END;
     }
 
     private void activateMenu(MenuButton control) {
-        if (control == null || control.sliderIndex() >= 0) return;
+        if (control == null || control.draggable()) return;
         audio.play(Cue.UI);
         switch (control) {
             case BACK, CANCEL_DELETE, RESUME -> back();
@@ -727,7 +774,8 @@ public final class GameScreen extends ScreenAdapter {
             case STROKE -> strict = !strict;
             case KEYBINDS -> openKeybinds();
             case LEFT, RIGHT, CONTINUE, HELP, CLEAR, UNDO -> {
-                selectedBinding = Action.values()[control.ordinal() - MenuButton.LEFT.ordinal()];
+                revealBinding(control);
+                selectedBinding = Action.values()[control.bindingIndex()];
                 bindingKey = true;
                 bindingMessage = "";
             }
@@ -738,7 +786,7 @@ public final class GameScreen extends ScreenAdapter {
             case GLOSSARIUM -> journal(mode);
             case PAUSE_SETTINGS -> settings(mode);
             case SAVE_MENU -> { if (tutorial || save()) menu(); }
-            case MASTER, SFX, BGM -> {}
+            case MASTER, SFX, BGM, KEYBIND_SCROLL -> {}
         }
     }
 
@@ -846,7 +894,7 @@ public final class GameScreen extends ScreenAdapter {
                     else if (mode != Mode.KEYBINDS) moveMenuFocus(direction, false);
                 }
                 case Input.Keys.ENTER, Input.Keys.SPACE -> {
-                    if (menuFocus != null && menuFocus.sliderIndex() < 0) {
+                    if (menuFocus != null && !menuFocus.draggable()) {
                         keyboardPress = menuFocus;
                         activationKey = key;
                     }
@@ -914,9 +962,20 @@ public final class GameScreen extends ScreenAdapter {
             var hovered = menuAt(p.x, p.y);
             if (hovered != null) showMenuFocus = false;
             if (hovered != menuHover && hovered != null && menuPress == null) {
-                audio.play(hovered.sliderIndex() >= 0 ? Cue.SLIDER : Cue.UI);
+                audio.play(hovered.draggable() ? Cue.SLIDER : Cue.UI);
             }
             menuHover = hovered;
+        }
+
+        @Override public boolean scrolled(float amountX, float amountY) {
+            if (mode != Mode.KEYBINDS || amountY == 0f || !Float.isFinite(amountY)) return false;
+            if (!MenuButton.inKeybindList(mouseX, mouseY) && !MenuButton.KEYBIND_SCROLL.contains(mouseX, mouseY, 0)) return false;
+            if (menuPointer == -1) {
+                scrollKeybinds(Math.round(keybindScroll + amountY * MenuButton.LEFT.height), false);
+                menuHover = menuAt(mouseX, mouseY);
+                if (menuHover != null) showMenuFocus = false;
+            }
+            return true;
         }
 
         @Override public boolean touchDown(int x, int y, int index, int button) {
@@ -933,8 +992,8 @@ public final class GameScreen extends ScreenAdapter {
                 showMenuFocus = false;
                 if (menuPress != null) {
                     menuPointer = index;
-                    menuFocus = menuPress;
-                    if (menuPress.sliderIndex() >= 0) dragSlider(p.x, true);
+                    if (menuPress != MenuButton.KEYBIND_SCROLL) menuFocus = menuPress;
+                    dragMenuControl(p.x, p.y, true);
                 }
             } else if (!beginInk(p.x, p.y, index) && pointer == -1) click(p.x, p.y);
             return true;
@@ -945,7 +1004,7 @@ public final class GameScreen extends ScreenAdapter {
             mouseX = p.x;
             mouseY = p.y;
             if (menuPointer == index && menuPress != null) {
-                if (menuPress.sliderIndex() >= 0) dragSlider(p.x, false);
+                dragMenuControl(p.x, p.y, false);
                 menuHover = menuAt(p.x, p.y);
             }
             moveInk(p.x, p.y, index);

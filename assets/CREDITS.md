@@ -7,6 +7,7 @@ The cinematic alphabet in `fonts/cinematic.png` is the user-supplied `Font.png`,
 The cinematic Skip animation uses the user-supplied `SkipAnim.png`, imported unchanged. Its two arrow poses occupy rows 4–10 and 14–20. Hover motion and label dimming share the main menu's timing, with a fixed label and a two-pixel arrow travel on the 320×180 art grid.
 
 The Settings, Saves, Keybinds, New Game and Pause art uses the five user-supplied `*Layout.png` sheets. The game crops the illustrated panels and draws live values and control states on their 320×180 art grid.
+The scrolling Keybinds panel uses `keybindsLayout.png` for its header, labels, brush shape and button artwork.
 
 - [Campaign stroke templates and KanjiVG provenance](data/kanji/TEMPLATES.md)
 - [Campaign Japanese reading and vocabulary references](data/learning/SOURCES.md)

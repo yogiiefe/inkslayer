@@ -5,6 +5,8 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.scenes.scene2d.utils.ScissorStack;
 import com.badlogic.gdx.utils.Disposable;
 import com.yogiiefe.inkslayer.audio.GameAudio.Channel;
 import com.yogiiefe.inkslayer.screens.KeyBindings.Action;
@@ -25,18 +27,24 @@ final class MenuView implements Disposable {
     private static final Color ALERT = Color.valueOf("ac252c"), BRUSH = Color.valueOf("ed1c24");
     private static final Color BRUSH_HOVER = Color.valueOf("bc1b27"), DIM = new Color(0, 0, 0, .72f);
     private static final Color SHADOW = Color.valueOf("404040");
+    private static final Color KEY_FOCUS = Color.valueOf("9b7ecc");
+    private static final String KEYBINDS_LAYOUT = "keybindsLayout.png";
+    private static final int KEY_BRUSH_WIDTH = 50, KEY_BRUSH_HEIGHT = 9;
 
     private final Texture chapter = TitleMenu.load("newGameLayout.png");
     private final Texture chapterArt = chapterArt();
     private final Texture settings = TitleMenu.load("settingsLayout.png");
-    private final Texture keybinds = TitleMenu.load("keybindLayout.png");
+    private final Texture keybinds = TitleMenu.load(KEYBINDS_LAYOUT);
     private final Texture keyBrush = keyBrush();
-    private final Texture keyHover = keyHover();
     private final Texture saves = TitleMenu.load("savesLayout.png");
     private final Texture pause = TitleMenu.load("pauseLayout.png");
     private final SpriteBatch batch;
     private final Texture pixel;
     private final MenuLettering lettering = new MenuLettering();
+    private final Rectangle keybindList = new Rectangle(MenuButton.LEFT.x * ART_PIXEL,
+        (ART_HEIGHT - MenuButton.KEYBIND_LIST_END) * ART_PIXEL,
+        MenuButton.LEFT.width * ART_PIXEL, MenuButton.KEYBIND_LIST_HEIGHT * ART_PIXEL);
+    private final Rectangle keybindClip = new Rectangle();
     private final GameScreen game;
 
     MenuView(GameScreen game, SpriteBatch batch, Texture pixel) {
@@ -98,23 +106,25 @@ final class MenuView implements Disposable {
     }
 
     private static Texture keyBrush() {
-        // Retain the brush silhouette, including the uneven edges, under the dynamic key names.
-        try (var source = new MenuPixmap("keybindLayout.png"); var artwork = new MenuPixmap()) {
-            for (int y = 47; y < 59; y++) {
-                int first = 234, last = 182;
-                for (int x = 182; x < 234; x++) {
-                    int rgba = source.pixmap.getPixel(x, y);
+        // Extract the Right row's brush shape and fill the area where the sample key was painted.
+        try (var source = new MenuPixmap(KEYBINDS_LAYOUT); var artwork = new MenuPixmap(KEY_BRUSH_WIDTH, KEY_BRUSH_HEIGHT)) {
+            for (int y = 0; y < KEY_BRUSH_HEIGHT; y++) {
+                int first = KEY_BRUSH_WIDTH, last = -1;
+                for (int x = 0; x < KEY_BRUSH_WIDTH; x++) {
+                    int rgba = source.pixmap.getPixel(184 + x, 61 + y);
                     if ((rgba >>> 24) - (rgba >>> 16 & 255) > 90) {
                         artwork.pixmap.drawPixel(x, y, 0xffffffff);
                         first = Math.min(first, x);
                         last = x;
                     }
                 }
-                for (int x = Math.max(first, 197); x <= Math.min(last, 220); x++) {
+                for (int x = Math.max(first, 18); x <= Math.min(last, 37); x++) {
                     artwork.pixmap.drawPixel(x, y, 0xffffffff);
                 }
             }
-            return new Texture(artwork.pixmap);
+            var texture = new Texture(artwork.pixmap);
+            texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+            return texture;
         }
     }
 
@@ -143,62 +153,89 @@ final class MenuView implements Disposable {
         rect(start, y, knob - start + 1, 1, EDGE);
         rect(knob - 2, y - 1, 5, 3, OUTLINE);
         rect(knob - 1, y - 2, 3, 5, OUTLINE);
-        rect(knob - 1, y - 1, 3, 3, switch (state) {
+        rect(knob - 1, y - 1, 3, 3, sliderInk(state));
+    }
+
+    private Color sliderInk(State state) {
+        return switch (state) {
             case IDLE -> EDGE;
             case HOVER -> GRAY;
             case PRESSED -> Color.WHITE;
-        });
-    }
-
-    private static Texture keyHover() {
-        try (var source = new MenuPixmap("keybindLayout.png")) {
-            source.pixmap.setBlending(Pixmap.Blending.None);
-            for (int y = 47; y < 134; y++) {
-                for (int x = 87; x < 143; x++) {
-                    int pixel = source.pixmap.getPixel(x, y);
-                    if (pixel == 0x464646ff) source.pixmap.drawPixel(x, y, 0x787878ff);
-                }
-            }
-            return new Texture(source.pixmap);
-        }
+        };
     }
 
     private void keybinds() {
         sheet(keybinds);
-        rect(86, 27, 52, 18, PAPER);
-        rect(86, 46, 150, 89, PAPER);
-        rect(131, 143, 62, 15, PAPER);
-        batch.setColor(Color.WHITE);
-        drawRegion(batch, keybinds, 86, 27, 52, 18, 86, 19);
-        for (var action : Action.values()) {
-            var control = MenuButton.BINDINGS[action.ordinal()];
-            var state = state(control);
-            int dx = state.shift, top = control.top + dx;
-            boolean capturing = game.bindingKey && game.selectedBinding == action;
-            Texture sheet = state == State.IDLE && !capturing ? keybinds : keyHover;
-            batch.setColor(Color.WHITE);
-            int sourceTop = 47 + 15 * action.ordinal();
-            drawRegion(batch, sheet, control.x, sourceTop, 56, control.height, control.x + dx, top);
-            String value = capturing ? "PRESS A KEY" : game.bindings.keycap(action);
-            batch.setColor(capturing || state == State.PRESSED ? ALERT : state == State.HOVER ? BRUSH_HOVER : BRUSH);
-            // Extend the painted brush equally on both sides of the shared column centre.
-            int grow = Math.max(0, (lettering.measure(value) + 6 - 49 + 1) / 2);
-            int brushX = 191 + dx - 26 - grow;
-            drawRegion(batch, keyBrush, 182, 47, 26, 12, brushX, top);
-            if (grow > 0) batch.draw(keyBrush, (brushX + 26) * ART_PIXEL, (ART_HEIGHT - top - 12) * ART_PIXEL,
-                grow * 2 * ART_PIXEL, 12 * ART_PIXEL, 208, 47, 1, 12, false, false);
-            drawRegion(batch, keyBrush, 208, 47, 26, 12, brushX + 26 + grow * 2, top);
-            int textX = brushX + 2, textTop = top + 4, textWidth = 49 + grow * 2;
-            for (int y = -1; y <= 1; y++) {
-                for (int x = -1; x <= 1; x++) {
-                    if (x != 0 || y != 0) caption(value, textX + x, textTop + y, textWidth, 5, OUTLINE, true);
-                }
-            }
-            caption(value, textX, textTop, textWidth, 5, PAPER, true);
+        rect(87, MenuButton.LEFT.top, 158, MenuButton.KEYBIND_LIST_HEIGHT, PAPER);
+        rect(117, 116, 92, 14, PAPER); // The lettering sample in the artwork is replaced with live feedback.
+        batch.flush();
+        game.viewport.calculateScissors(batch.getTransformMatrix(), keybindList, keybindClip);
+        if (ScissorStack.pushScissors(keybindClip)) {
+            for (var action : Action.values()) keybindRow(action);
+            batch.flush();
+            ScissorStack.popScissors();
         }
-        label(MenuButton.DEFAULT, "DEFAULT");
-        if (!game.bindingMessage.isEmpty()) lettering.wrapped(batch, game.bindingMessage, 81, 124, 158, ALERT);
-        back();
+        keybindRail();
+        keybindDefault();
+        String message = game.bindingMessage;
+        if (message.isEmpty() && game.bindingKey) message = "PRESS A KEY. ESC TO CANCEL.";
+        if (!message.isEmpty()) lettering.wrapped(batch, message, 81, 116, 158, ALERT);
+        back(keybinds);
+    }
+
+    private void keybindRow(Action action) {
+        var control = MenuButton.BINDINGS[action.ordinal()];
+        var state = state(control);
+        boolean capturing = game.bindingKey && game.selectedBinding == action;
+        int shift = state.shift, top = control.top - game.keybindScroll + shift;
+        if (capturing || state != State.IDLE) rect(control.x, top + 5, 1, 5, KEY_FOCUS);
+        if (action == Action.UNDO) caption("UNDO", 91 + shift, top + 5, 49, 5, OUTLINE, false);
+        else {
+            batch.setColor(Color.WHITE);
+            int sourceTop = control.top + (action == Action.CLEAR ? 6 : 5);
+            drawRegion(batch, keybinds, 91, sourceTop, 49, 5, 91 + shift, top + 5);
+        }
+        String value = capturing ? "..." : game.bindings.keycap(action);
+        batch.setColor(capturing || state == State.PRESSED ? ALERT : state == State.HOVER ? BRUSH_HOVER : BRUSH);
+        // Extend the centre of the brush so long key names still fit the column.
+        int grow = Math.clamp((lettering.measure(value) + 9 - KEY_BRUSH_WIDTH) / 2, 0, 17);
+        int half = KEY_BRUSH_WIDTH / 2;
+        int brushX = 193 + shift - half - grow, brushTop = top + 2;
+        drawRegion(batch, keyBrush, 0, 0, half, KEY_BRUSH_HEIGHT, brushX, brushTop);
+        if (grow > 0) batch.draw(keyBrush, (brushX + half) * ART_PIXEL,
+            (ART_HEIGHT - brushTop - KEY_BRUSH_HEIGHT) * ART_PIXEL, grow * 2 * ART_PIXEL,
+            KEY_BRUSH_HEIGHT * ART_PIXEL, half, 0, 1, KEY_BRUSH_HEIGHT, false, false);
+        drawRegion(batch, keyBrush, half, 0, half, KEY_BRUSH_HEIGHT, brushX + half + grow * 2, brushTop);
+        int textX = brushX + 4, textTop = top + 4, textWidth = KEY_BRUSH_WIDTH + grow * 2 - 8;
+        for (int y = -1; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                if (x != 0 || y != 0) caption(value, textX + x, textTop + y, textWidth, 5, OUTLINE, true);
+            }
+        }
+        caption(value, textX, textTop, textWidth, 5, PAPER, true);
+    }
+
+    private void keybindRail() {
+        var rail = MenuButton.KEYBIND_SCROLL;
+        int x = rail.x + rail.width / 2;
+        int top = MenuButton.keybindThumbTop(game.keybindScroll);
+        int height = MenuButton.KEYBIND_THUMB_HEIGHT;
+        rect(x, rail.top, 1, rail.height, GRAY);
+        rect(x - 1, rail.top + 1, 3, rail.height - 2, GRAY);
+        rect(x, top, 1, height, SHADOW);
+        rect(x - 1, top + 1, 3, height - 2, SHADOW);
+        rect(x, top + 1, 1, height - 2, sliderInk(state(rail)));
+    }
+
+    private void keybindDefault() {
+        var button = MenuButton.DEFAULT;
+        var state = state(button);
+        int sourceX = switch (state) { case IDLE -> button.x; case HOVER -> 256; case PRESSED -> 257; };
+        int sourceTop = state == State.HOVER ? 121 : button.top;
+        rect(button.x, button.top, button.width, button.height, PAPER);
+        batch.setColor(Color.WHITE);
+        drawRegion(batch, keybinds, sourceX, sourceTop, button.width - state.shift, button.height - state.shift,
+            button.x + state.shift, button.top + state.shift);
     }
 
     private void saves() {
@@ -256,18 +293,22 @@ final class MenuView implements Disposable {
     }
 
     private void back() {
+        back(settings);
+    }
+
+    private void back(Texture artwork) {
         var button = MenuButton.BACK;
         var state = state(button);
         int sourceX = switch (state) { case IDLE -> button.x; case HOVER -> 256; case PRESSED -> 280; };
         rect(button.x, button.top, button.width, button.height, PAPER);
         batch.setColor(Color.WHITE);
-        drawRegion(batch, settings, sourceX, button.top + state.shift, button.width - state.shift, button.height - state.shift,
+        drawRegion(batch, artwork, sourceX, button.top + state.shift, button.width - state.shift, button.height - state.shift,
             button.x + state.shift, button.top + state.shift);
     }
 
     private State state(MenuButton control) {
         if (game.keyboardPress == control) return State.PRESSED;
-        if (game.menuPress == control && (game.menuHover == control || control.sliderIndex() >= 0)) return State.PRESSED;
+        if (game.menuPress == control && (game.menuHover == control || control.draggable())) return State.PRESSED;
         return game.menuHover == control || game.showMenuFocus && game.menuFocus == control
             ? State.HOVER : State.IDLE;
     }
@@ -326,7 +367,6 @@ final class MenuView implements Disposable {
         settings.dispose();
         keybinds.dispose();
         keyBrush.dispose();
-        keyHover.dispose();
         lettering.dispose();
         saves.dispose();
         pause.dispose();
@@ -335,8 +375,9 @@ final class MenuView implements Disposable {
     private static final class MenuPixmap implements AutoCloseable {
         final Pixmap pixmap;
         MenuPixmap(String path) { pixmap = new Pixmap(Gdx.files.internal(path)); }
-        MenuPixmap() {
-            pixmap = new Pixmap(ART_WIDTH, ART_HEIGHT, Pixmap.Format.RGBA8888);
+        MenuPixmap() { this(ART_WIDTH, ART_HEIGHT); }
+        MenuPixmap(int width, int height) {
+            pixmap = new Pixmap(width, height, Pixmap.Format.RGBA8888);
             pixmap.setBlending(Pixmap.Blending.None);
         }
         @Override public void close() { pixmap.dispose(); }
