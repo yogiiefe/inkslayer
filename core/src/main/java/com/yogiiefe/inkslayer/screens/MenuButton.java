@@ -18,7 +18,9 @@ enum MenuButton {
     HELP(88, 83, 148, 12), CLEAR(88, 95, 148, 12), UNDO(88, 107, 148, 12),
     KEYBIND_SCROLL(237, 49, 10, 58), DEFAULT(130, 137, 60, 13),
     RESUME(115, 68, 94, 12), GLOSSARIUM(115, 83, 94, 12),
-    PAUSE_SETTINGS(115, 97, 94, 12), SAVE_MENU(115, 111, 94, 12);
+    PAUSE_SETTINGS(115, 97, 94, 12), SAVE_MENU(115, 111, 94, 12),
+    KANJI(80, 50, 37, 15), HIRAGANA(126, 50, 52, 15), KATAKANA(187, 50, 54, 15),
+    PREVIOUS(75, 86, 15, 21), NEXT(231, 86, 15, 21), PRACTICE(127, 139, 66, 12);
 
     static final MenuButton[] CHAPTERS = {ELEMENTS, PETS, WEATHER, FOOD, BACK};
     static final MenuButton[] SLOTS = {SLOT_1, TRASH_1, SLOT_2, TRASH_2, SLOT_3, TRASH_3, BACK};
@@ -28,6 +30,7 @@ enum MenuButton {
     static final MenuButton[] SETTINGS = {MASTER, SFX, BGM, DISPLAY, STROKE, KEYBINDS, BACK};
     static final MenuButton[] BINDINGS = {LEFT, RIGHT, CONTINUE, HELP, CLEAR, UNDO, DEFAULT, BACK};
     static final MenuButton[] PAUSE = {RESUME, GLOSSARIUM, PAUSE_SETTINGS, SAVE_MENU};
+    static final MenuButton[] JOURNAL = {KANJI, HIRAGANA, KATAKANA, PREVIOUS, NEXT, PRACTICE, BACK};
     static final MenuButton[] NONE = {};
     static final int TRACK_START = 146, TRACK_END = 231;
     static final int KEYBIND_LIST_HEIGHT = 5 * LEFT.height;

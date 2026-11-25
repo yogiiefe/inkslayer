@@ -37,18 +37,19 @@ import static com.yogiiefe.inkslayer.screens.PixelArtViewport.ART_HEIGHT;
 public final class GameScreen extends ScreenAdapter {
     enum Mode { TITLE, CHAPTER_SELECT, SLOTS, SETTINGS, KEYBINDS, CINEMATIC, GAME, PAUSE, JOURNAL, PRACTICE }
     enum GlossaryTab { KANJI, HIRAGANA, KATAKANA }
-    static final int CANVAS_X = 0, CANVAS_WIDTH = 1280, CANVAS_TOP = 260;
-    static final int GUIDE_SIZE = 176, GUIDE_X = 552, GUIDE_Y = 54;
+    static final int CANVAS_X = 0, CANVAS_WIDTH = UI_WIDTH, CANVAS_TOP = 65 * ART_PIXEL;
+    static final int GUIDE_SIZE = 44 * ART_PIXEL, GUIDE_X = (UI_WIDTH - GUIDE_SIZE) / 2, GUIDE_Y = 14 * ART_PIXEL;
     // Padded clickable area around the artwork in the 320x180 SkipAnim.png sheet.
     static final int SKIP_WIDTH = 132, SKIP_HEIGHT = 44;
     static final int SKIP_X = UI_WIDTH - SKIP_WIDTH - 8, SKIP_Y = UI_HEIGHT - SKIP_HEIGHT - 8;
-    private static final double GUIDE_STROKES_PER_SECOND = 1.1;
     private static final Track[] STAGE_TRACKS = {Track.STAGE1, Track.STAGE2, Track.STAGE3, Track.STAGE4};
 
     final CampaignContent content;
     final List<FillQuiz> quizzes;
     final CampaignRun run;
     final Map<String, List<List<InkPoint>>> templates;
+    private final Map<String, List<List<InkPoint>>> kanaStrokes;
+    private KanjiRecognizer kanaPractice;
     final Drawing drawing = new Drawing();
     final PixelArtViewport viewport = new PixelArtViewport();
     final GameAudio audio = new GameAudio();
@@ -65,6 +66,8 @@ public final class GameScreen extends ScreenAdapter {
     Mode settingsReturn = Mode.TITLE, journalReturn = Mode.GAME;
     TitleMenu.Option titleSelection = TitleMenu.Option.NEW, titleHover;
     MenuButton menuFocus, menuHover, menuPress, keyboardPress;
+    MenuButton glossaryPressedButton;
+    double glossaryPressedAt;
     private int activationKey = -1;
     boolean showMenuFocus;
     List<SaveStore.Slot> slots = List.of();
@@ -72,8 +75,11 @@ public final class GameScreen extends ScreenAdapter {
     boolean confirmDelete;
     boolean ending, endingPending, completed, assisted, strict, bindingKey;
     int panel, journalPage;
+    double pageStartedAt;
+    int practiceIndex;
     int keybindScroll;
     Action selectedBinding = Action.LEFT;
+    double bindingChangedAt = -1;
     GlossaryTab glossaryTab = GlossaryTab.KANJI;
     double effectTime;
     boolean tutorial;
@@ -86,7 +92,8 @@ public final class GameScreen extends ScreenAdapter {
     String feedback = "", saveMessage = "", settingsMessage = "";
     String bindingMessage = "";
     String guideGlyph;
-    double guideProgress;
+    double guideAge;
+    private double guideDuration;
     String practiceGlyph;
     String kanaInput = "";
     int tileSelection;
@@ -101,13 +108,14 @@ public final class GameScreen extends ScreenAdapter {
     private DesktopSmoke smoke;
 
     public GameScreen(CampaignContent content, List<FillQuiz> quizzes, Map<String, List<List<InkPoint>>> templates,
-                      Predicate<DisplayMode> applyDisplay) {
+                      Map<String, List<List<InkPoint>>> kanaStrokes, Predicate<DisplayMode> applyDisplay) {
         this.content = content;
         this.quizzes = quizzes;
         bossQuizzes = List.of("水", "猫", "雨", "卵").stream()
             .map(id -> quizzes.stream().filter(quiz -> quiz.kanji().equals(id)).findFirst().orElseThrow())
             .toList();
         this.templates = templates;
+        this.kanaStrokes = kanaStrokes;
         this.applyDisplay = applyDisplay;
         run = new CampaignRun(content);
         recognizer = KanjiRecognizer.fromTemplates(templates, 0.145);
@@ -146,8 +154,8 @@ public final class GameScreen extends ScreenAdapter {
             else if (skipHoverAt < 0) skipHoverAt = elapsed;
         }
         if ((mode == Mode.GAME || mode == Mode.PRACTICE) && guideGlyph != null) {
-            guideProgress += frame * GUIDE_STROKES_PER_SECOND;
-            if (guideProgress >= templates.get(guideGlyph).size()) guideGlyph = null;
+            guideAge += frame;
+            if (guideAge >= guideDuration) guideGlyph = null;
         }
         ScreenUtils.clear(0, 0, 0, 1);
         view.render();
@@ -438,13 +446,28 @@ public final class GameScreen extends ScreenAdapter {
 
     private void showGuide() {
         guideGlyph = mode == Mode.PRACTICE ? practiceGlyph : quiz().kanji();
-        guideProgress = 0;
+        guideAge = 0;
+        guideDuration = view.guideDuration(guideGlyph);
         assisted = true;
+    }
+
+    List<List<InkPoint>> guideStrokes() {
+        return (mode == Mode.PRACTICE && glossaryTab != GlossaryTab.KANJI ? kanaStrokes : templates).get(guideGlyph);
     }
 
     private void submit() {
         if (drawing.isActive() || !canDraw()) return;
         boolean practice = mode == Mode.PRACTICE;
+        if (practice && glossaryTab != GlossaryTab.KANJI) {
+            var result = kanaPractice.recognize(drawing.snapshot(), strict);
+            feedback = result.message();
+            audio.play(result.accepted() ? Cue.ACCEPT : Cue.RETRY);
+            if (result.accepted() && practiceIndex + 1 < glossaryText().length()) {
+                practiceIndex++;
+                startPracticeGlyph();
+            } else if (result.accepted()) feedback = "Correct!";
+            return;
+        }
         String target = practice ? practiceGlyph : quiz().kanji();
         var match = recognizer.match(drawing.snapshot(), practice && strict, templates.keySet());
         boolean correct = target.equals(match.id());
@@ -562,6 +585,7 @@ public final class GameScreen extends ScreenAdapter {
 
     private void openKeybinds() {
         bindingKey = false;
+        bindingChangedAt = -1;
         keybindScroll = 0;
         selectedBinding = Action.LEFT;
         bindingMessage = "";
@@ -626,7 +650,7 @@ public final class GameScreen extends ScreenAdapter {
             case GAME -> { cancelStroke(); showMenu(Mode.PAUSE); }
             case PAUSE -> mode = Mode.GAME;
             case JOURNAL -> showMenu(journalReturn);
-            case PRACTICE -> { clearDrawing(); mode = Mode.JOURNAL; }
+            case PRACTICE -> { clearDrawing(); showMenu(Mode.JOURNAL); pageStartedAt = elapsed; }
         }
     }
 
@@ -647,7 +671,8 @@ public final class GameScreen extends ScreenAdapter {
         journalReturn = from;
         glossaryTab = GlossaryTab.KANJI;
         journalPage = 0;
-        mode = Mode.JOURNAL;
+        pageStartedAt = elapsed;
+        showMenu(Mode.JOURNAL);
     }
 
     List<FillQuiz> journalEntries() {
@@ -660,18 +685,41 @@ public final class GameScreen extends ScreenAdapter {
 
     int glossarySize() { return journalSize(); }
 
+    String glossaryText() {
+        var entries = journalEntries();
+        if (journalPage >= entries.size()) return content.katakana.get(journalPage - entries.size()).text();
+        var quiz = entries.get(journalPage);
+        return switch (glossaryTab) {
+            case KANJI -> quiz.kanji();
+            case HIRAGANA -> quiz.reading();
+            case KATAKANA -> quiz.katakana();
+        };
+    }
+
+    String glossaryRomaji() {
+        var entries = journalEntries();
+        return journalPage < entries.size() ? entries.get(journalPage).romaji()
+            : content.katakana.get(journalPage - entries.size()).romaji();
+    }
+
     private void selectGlossaryTab(int index) {
         glossaryTab = GlossaryTab.values()[index];
         journalPage = 0;
+        pageStartedAt = elapsed;
     }
 
     private void practice() {
-        if (run.phase != Phase.WALK || glossaryTab != GlossaryTab.KANJI) return;
-        var entries = journalEntries();
-        if (entries.isEmpty()) return;
-        practiceGlyph = entries.get(journalPage).kanji();
-        clearDrawing();
+        if (run.phase != Phase.WALK) return;
+        practiceIndex = 0;
         mode = Mode.PRACTICE;
+        startPracticeGlyph();
+    }
+
+    private void startPracticeGlyph() {
+        practiceGlyph = glossaryText().substring(practiceIndex, practiceIndex + 1);
+        if (glossaryTab != GlossaryTab.KANJI)
+            kanaPractice = KanjiRecognizer.fromTemplates(Map.of(practiceGlyph, kanaStrokes.get(practiceGlyph)), .145);
+        clearDrawing();
         showGuide();
     }
 
@@ -690,12 +738,14 @@ public final class GameScreen extends ScreenAdapter {
             case SETTINGS -> MenuButton.SETTINGS;
             case KEYBINDS -> MenuButton.BINDINGS;
             case PAUSE -> MenuButton.PAUSE;
+            case JOURNAL -> MenuButton.JOURNAL;
             default -> MenuButton.NONE;
         };
     }
 
     private boolean menuEnabled(MenuButton control) {
         return switch (control) {
+            case PRACTICE -> run.phase == Phase.WALK;
             case TRASH_1, TRASH_2, TRASH_3 -> slots.get(control.ordinal() - MenuButton.TRASH_1.ordinal()).occupied();
             default -> true;
         };
@@ -721,6 +771,12 @@ public final class GameScreen extends ScreenAdapter {
         menuPointer = -1;
         activationKey = -1;
         keyboardPress = menuPress = menuHover = null;
+        glossaryPressedButton = null;
+    }
+
+    private void startGlossaryPress(MenuButton button) {
+        glossaryPressedButton = button;
+        glossaryPressedAt = elapsed;
     }
 
     private void moveMenuFocus(int direction, boolean includeTrash) {
@@ -803,8 +859,8 @@ public final class GameScreen extends ScreenAdapter {
     }
 
     private void activateMenu(MenuButton control) {
-        if (control == null || control.draggable()) return;
-        audio.play(Cue.UI);
+        if (control == null || control.draggable() || !menuEnabled(control)) return;
+        audio.play(menuCue(control));
         switch (control) {
             case BACK, CANCEL_DELETE, RESUME -> back();
             case ELEMENTS, PETS, WEATHER, FOOD -> startNewGame(control.ordinal() - MenuButton.ELEMENTS.ordinal());
@@ -817,18 +873,31 @@ public final class GameScreen extends ScreenAdapter {
             case LEFT, RIGHT, CONTINUE, HELP, CLEAR, UNDO -> {
                 revealBinding(control);
                 selectedBinding = Action.values()[control.bindingIndex()];
+                bindingChangedAt = -1;
                 bindingKey = true;
                 bindingMessage = "";
             }
             case DEFAULT -> {
                 bindingKey = false;
+                bindingChangedAt = -1;
                 bindingMessage = bindings.reset();
             }
             case GLOSSARIUM -> journal(mode);
+            case KANJI, HIRAGANA, KATAKANA -> selectGlossaryTab(control.ordinal() - MenuButton.KANJI.ordinal());
+            case PREVIOUS, NEXT -> {
+                journalPage = Math.floorMod(journalPage + (control == MenuButton.NEXT ? 1 : -1), journalSize());
+                pageStartedAt = elapsed;
+            }
+            case PRACTICE -> practice();
             case PAUSE_SETTINGS -> settings(mode);
             case SAVE_MENU -> { if (tutorial || save()) menu(); }
             case MASTER, SFX, BGM, KEYBIND_SCROLL -> {}
         }
+    }
+
+    private static Cue menuCue(MenuButton button) {
+        if (button == MenuButton.PREVIOUS || button == MenuButton.NEXT) return Cue.ARROW;
+        return button.draggable() ? Cue.SLIDER : Cue.UI;
     }
 
     private void click(float x, float y) {
@@ -837,19 +906,6 @@ public final class GameScreen extends ScreenAdapter {
             case CINEMATIC -> {
                 if (hit(x, y, SKIP_X, SKIP_Y, SKIP_WIDTH, SKIP_HEIGHT)) skipCinematic();
                 else if (hit(x, y, 0, 0, UI_WIDTH, UI_HEIGHT)) advanceCinematic();
-            }
-            case JOURNAL -> {
-                int count = journalSize();
-                if (hit(x, y, 530, 115, 220, 42)) back();
-                else if (hit(x, y, 530, 270, 220, 42)) practice();
-                else if (count > 0 && hit(x, y, 312, 115, 180, 42)) journalPage = Math.floorMod(journalPage - 1, count);
-                else if (count > 0 && hit(x, y, 788, 115, 180, 42)) journalPage = (journalPage + 1) % count;
-                else for (int i = 0; i < GlossaryTab.values().length; i++) {
-                    if (hit(x, y, 324 + i * 214, 505, 204, 42)) {
-                        selectGlossaryTab(i);
-                        break;
-                    }
-                }
             }
             case GAME -> {
                 if (run.phase == Phase.WON && hit(x, y, 475, 316, 330, 54)) advance();
@@ -883,13 +939,23 @@ public final class GameScreen extends ScreenAdapter {
                     if (key == Input.Keys.S) skipCinematic();
                 }
                 case JOURNAL -> {
-                    int size = journalSize();
-                    if (key == Input.Keys.TAB || key == Input.Keys.ENTER) back();
-                    else if (size > 0 && (key == Input.Keys.LEFT || key == Input.Keys.RIGHT))
-                        journalPage = Math.floorMod(journalPage + (key == Input.Keys.LEFT ? -1 : 1), size);
-                    else if (key == Input.Keys.NUM_1 || key == Input.Keys.NUM_2 || key == Input.Keys.NUM_3)
-                        selectGlossaryTab(key - Input.Keys.NUM_1);
-                    else if (key == Input.Keys.Q) practice();
+                    var button = switch (key) {
+                        case Input.Keys.TAB, Input.Keys.ENTER -> MenuButton.BACK;
+                        case Input.Keys.LEFT -> MenuButton.PREVIOUS;
+                        case Input.Keys.RIGHT -> MenuButton.NEXT;
+                        case Input.Keys.NUM_1 -> MenuButton.KANJI;
+                        case Input.Keys.NUM_2 -> MenuButton.HIRAGANA;
+                        case Input.Keys.NUM_3 -> MenuButton.KATAKANA;
+                        case Input.Keys.Q -> MenuButton.PRACTICE;
+                        default -> null;
+                    };
+                    if (button != null && menuEnabled(button)) {
+                        clearMenuPointer();
+                        showMenuFocus = true;
+                        menuFocus = keyboardPress = button;
+                        activationKey = key;
+                        startGlossaryPress(button);
+                    }
                 }
                 case PRACTICE -> drawingKey(key);
                 case GAME -> gameKey(key);
@@ -910,9 +976,13 @@ public final class GameScreen extends ScreenAdapter {
             clearMenuPointer();
             showMenuFocus = true;
             if (mode == Mode.KEYBINDS && bindingKey) {
+                int previousKey = bindings.primaryKey(selectedBinding);
                 bindingMessage = bindings.bind(selectedBinding, key);
-                bindingKey = !bindings.matches(selectedBinding, key);
-                if (!bindingKey) audio.play(Cue.UI);
+                bindingKey = bindings.primaryKey(selectedBinding) != key;
+                if (!bindingKey) {
+                    if (previousKey != key) bindingChangedAt = elapsed;
+                    audio.play(Cue.UI);
+                }
                 return;
             }
             switch (key) {
@@ -1003,7 +1073,7 @@ public final class GameScreen extends ScreenAdapter {
             var hovered = menuAt(p.x, p.y);
             if (hovered != null) showMenuFocus = false;
             if (hovered != menuHover && hovered != null && menuPress == null) {
-                audio.play(hovered.draggable() ? Cue.SLIDER : Cue.UI);
+                audio.play(menuCue(hovered));
             }
             menuHover = hovered;
         }
@@ -1034,6 +1104,7 @@ public final class GameScreen extends ScreenAdapter {
                 if (menuPress != null) {
                     menuPointer = index;
                     if (menuPress != MenuButton.KEYBIND_SCROLL) menuFocus = menuPress;
+                    if (mode == Mode.JOURNAL) startGlossaryPress(menuPress);
                     dragMenuControl(p.x, p.y, true);
                 }
             } else if (!beginInk(p.x, p.y, index) && pointer == -1) click(p.x, p.y);
@@ -1061,6 +1132,7 @@ public final class GameScreen extends ScreenAdapter {
                 menuPress = null;
                 menuPointer = -1;
                 if (pressed == menuHover) activateMenu(pressed);
+                else if (pressed == glossaryPressedButton) glossaryPressedButton = null;
             }
             endInk(p.x, p.y, index);
             return true;

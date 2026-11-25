@@ -79,8 +79,7 @@ public class Lwjgl3Launcher {
         configuration.setWindowedMode(Math.max(960, Integer.getInteger("inkslayer.width", 1280)), Math.max(540, Integer.getInteger("inkslayer.height", 720)));
         configuration.setWindowSizeLimits(960, 540, -1, -1);
         configuration.setPauseWhenLostFocus(!Boolean.getBoolean("inkslayer.smoke"));
-        //// You can change these files; they are in lwjgl3/src/main/resources/ .
-        //// They can also be loaded from the root of assets/ .
+        // Window icons are packaged from the shared assets directory.
         configuration.setWindowIcon("icon.png", "icons/icon-32.png", "icons/icon-48.png",
             "icons/icon-64.png", "icons/icon-128.png", "icons/icon-256.png");
 

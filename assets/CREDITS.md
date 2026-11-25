@@ -28,3 +28,7 @@ English meaning/reading cross-check: https://www.tuttlepublishing.com/content/do
 Dictionary pages were consulted; their text and illustrations are not redistributed.
 
 libGDX and declared extensions retain their upstream licenses. The generated desktop StartupHelper retains its Apache-2.0 notice in source.
+
+The Glossarium writing sprites (`glossary/writing.png`), frame index, and kana paths (`data/kanji/glossary-kana.json`) are adaptations of KanjiVG by Ulrich Apel and contributors. The diagrams and these derivatives use [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). See the [KanjiVG project](https://kanjivg.tagaini.net/), [pinned source SVGs](https://github.com/KanjiVG/kanjivg/tree/d95a97627fd9fe5b2c8d06ca81e38149609c0c1e/kanji) and [included license](data/kanji/KanjiVG-LICENSE.txt).
+
+Each source filename is its Unicode code point in five lowercase hex digits. The kana data retain the numbered stroke order, sampling each cubic at 16 intervals in the original 109-unit square. Run `python tools/build-glossary-art.py` with Pillow to rasterize the bundled kanji and kana paths into 32-pixel cells. Each stroke adds four cumulative frames spaced by path length.

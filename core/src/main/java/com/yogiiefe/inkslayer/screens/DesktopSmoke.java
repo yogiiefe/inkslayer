@@ -324,10 +324,21 @@ final class DesktopSmoke {
         key(Input.Keys.NUM_2);
         key(Input.Keys.LEFT);
         require(g.glossarySize() == 39 && g.journalPage == 38, "Hiragana glossary navigation");
-        key(Input.Keys.NUM_3);
+        click(g, MenuButton.NEXT.centerX(), MenuButton.NEXT.centerY());
+        require(g.journalPage == 0, "right arrow wraps to the first page");
+        click(g, MenuButton.PRACTICE.centerX(), MenuButton.PRACTICE.centerY());
+        require(g.mode == Mode.PRACTICE && "み".equals(g.guideGlyph), "practice the displayed hiragana reading");
+        draw(g, "み");
+        key(Input.Keys.ENTER);
+        require("ず".equals(g.guideGlyph), "advance to the next kana after a correct submission");
+        key(Input.Keys.ESCAPE);
+        click(g, MenuButton.KATAKANA.centerX(), MenuButton.KATAKANA.centerY());
         key(Input.Keys.LEFT);
         require(g.glossarySize() == g.bossQuestionCount() + g.content.katakana.size()
             && g.journalPage == g.glossarySize() - 1, "Katakana glossary coverage");
+        key(Input.Keys.Q);
+        require(g.mode == Mode.PRACTICE && "タ".equals(g.guideGlyph), "practice a katakana word");
+        key(Input.Keys.ESCAPE);
         key(Input.Keys.NUM_1);
         key(Input.Keys.Q);
         require(g.mode == GameScreen.Mode.PRACTICE && "水".equals(g.guideGlyph), "safe practice route and guide");
@@ -353,7 +364,7 @@ final class DesktopSmoke {
                     key(Input.Keys.H);
                     require(g.guideGlyph == null, "old help key must no longer show the guide");
                     key(Input.Keys.G);
-                    require("水".equals(g.guideGlyph) && g.guideProgress == 0, "remapped help must replay the guide from the start");
+                    require("水".equals(g.guideGlyph) && g.guideAge == 0, "remapped help must replay the guide from the start");
                     key(Input.Keys.ENTER);
                     require(!g.revealed() && g.run.hp == CampaignRun.MAX_HP, "failed tutorial attempt dealt damage");
                     draw(g, "水");
@@ -435,7 +446,8 @@ final class DesktopSmoke {
 
     private void draw(GameScreen g, String glyph) {
         var input = Gdx.input.getInputProcessor();
-        for (var stroke : g.templates.get(glyph)) {
+        var strokes = g.mode == Mode.PRACTICE && glyph.equals(g.guideGlyph) ? g.guideStrokes() : g.templates.get(glyph);
+        for (var stroke : strokes) {
             for (int index = 0; index < stroke.size(); index++) {
                 var point = stroke.get(index);
                 float uiX = GameScreen.GUIDE_X + (float) point.x() * GameScreen.GUIDE_SIZE / 109;
@@ -453,9 +465,9 @@ final class DesktopSmoke {
                 else input.touchDragged(x, y, 0);
             }
         }
-        require(g.drawing.count() == g.templates.get(glyph).size(), "mouse strokes lost for U+"
+        require(g.drawing.count() == strokes.size(), "mouse strokes lost for U+"
             + Integer.toHexString(glyph.codePointAt(0)) + ": " + g.drawing.count() + "/"
-            + g.templates.get(glyph).size() + " in " + g.mode);
+            + strokes.size() + " in " + g.mode);
     }
 
     private void key(int key) {

@@ -28,6 +28,8 @@ final class ScreenView implements Disposable {
     private static final Color MUTED = Color.valueOf("b1b1b1"), ACCENT = Color.valueOf("cccccc");
     private static final Color PINK = Color.valueOf("909090"), PANEL = Color.valueOf("1b1b1b"), LINE = Color.valueOf("525252");
     private static final Color[] STAGE = colors("131313", "1d1d1d", "191919", "171717");
+    // The hint scales a two-pixel atlas stroke to about three art pixels.
+    private static final int BRUSH_SIZE = 3 * ART_PIXEL;
 
     private final GameScreen g;
     private final SpriteBatch batch = new SpriteBatch();
@@ -38,6 +40,7 @@ final class ScreenView implements Disposable {
     private final BitmapFont small, body, large, quizFont;
     private final BitmapFont cinematicFont;
     private final TitleMenu titleMenu = new TitleMenu();
+    private final GlossaryWriting writing = new GlossaryWriting();
     private final MenuView menus;
     private final GlyphLayout layout = new GlyphLayout();
 
@@ -67,7 +70,7 @@ final class ScreenView implements Disposable {
         } finally {
             generator.dispose();
         }
-        menus = new MenuView(g, batch, pixel);
+        menus = new MenuView(g, batch, pixel, writing);
     }
 
     private static Color[] colors(String... hex) {
@@ -135,10 +138,9 @@ final class ScreenView implements Disposable {
         }
         switch (g.mode) {
             case TITLE -> {}
-            case CHAPTER_SELECT, SLOTS, SETTINGS, KEYBINDS, PAUSE -> menus.draw();
+            case CHAPTER_SELECT, SLOTS, SETTINGS, KEYBINDS, PAUSE, JOURNAL -> menus.draw();
             case CINEMATIC -> cinematic();
             case GAME -> arenaUi();
-            case JOURNAL -> journal();
             case PRACTICE -> practice();
         }
         batch.end();
@@ -323,7 +325,10 @@ final class ScreenView implements Disposable {
             center(small, g.feedback.isEmpty() ? "Click tiles or use " + movementKeys() + " + Space   /   "
                 + g.bindings.label(Action.SUBMIT) + " submit   /   Backspace undo" : g.feedback, 640, 44, INK);
         } else {
-            if (g.guideGlyph != null) previewGuide();
+            if (g.guideGlyph != null) {
+                writing.drawGuide(batch, g.guideGlyph, g.guideAge, GUIDE_X / ART_PIXEL,
+                    (UI_HEIGHT - GUIDE_Y - GUIDE_SIZE) / ART_PIXEL, GUIDE_SIZE / ART_PIXEL);
+            }
             for (var path : g.drawing.snapshot()) brush(path);
             brush(g.drawing.active());
             String prompt = g.revealed() && !practice ? "Correct!" : g.feedback;
@@ -334,41 +339,34 @@ final class ScreenView implements Disposable {
         }
     }
 
-    private void previewGuide() {
-        var strokes = g.templates.get(g.guideGlyph);
-        int active = (int) g.guideProgress;
-        for (int index = 0; index <= active; index++) {
-            var path = strokes.get(index);
-            int count = index == active ? 1 + (int) ((g.guideProgress - active) * path.size()) : path.size();
-            stroke(path.subList(0, count), GUIDE_X, GUIDE_Y + GUIDE_SIZE, GUIDE_SIZE / 109f, LINE, 3);
-        }
+    double guideDuration(String glyph) {
+        return writing.duration(glyph);
     }
 
     private void brush(List<InkPoint> path) {
         if (path.isEmpty()) return;
         var first = path.getFirst();
-        stamp(first.x(), first.y(), 18);
+        stamp(first.x(), first.y());
         for (int index = 1; index < path.size(); index++) {
             var a = path.get(index - 1);
             var b = path.get(index);
             double distance = a.distance(b);
-            int steps = Math.max(1, (int) Math.ceil(distance / 4));
-            int width = Math.clamp((int) (23 - distance * 0.36), 12, 23);
+            int steps = Math.max(1, (int) Math.ceil(distance / ART_PIXEL));
             for (int step = 1; step <= steps; step++) {
                 double t = (double) step / steps;
-                stamp(a.x() + (b.x() - a.x()) * t, a.y() + (b.y() - a.y()) * t, width);
+                stamp(a.x() + (b.x() - a.x()) * t, a.y() + (b.y() - a.y()) * t);
             }
         }
     }
 
-    private void stamp(double x, double y, int width) {
-        int left = (int) Math.round((x - width / 2.0) / 3) * 3;
-        int bottom = (int) Math.round((CANVAS_TOP - y - width / 2.0) / 3) * 3;
-        int right = Math.min(CANVAS_WIDTH, left + width);
-        int top = Math.min(CANVAS_TOP, bottom + width);
+    private void stamp(double x, double y) {
+        int left = (int) Math.round((x - BRUSH_SIZE / 2.0) / ART_PIXEL) * ART_PIXEL;
+        int bottom = (int) Math.round((CANVAS_TOP - y - BRUSH_SIZE / 2.0) / ART_PIXEL) * ART_PIXEL;
+        int right = Math.min(CANVAS_WIDTH, left + BRUSH_SIZE);
+        int top = Math.min(CANVAS_TOP, bottom + BRUSH_SIZE);
         left = Math.max(0, left);
         bottom = Math.max(0, bottom);
-        if (right > left && top > bottom) box(left, bottom, right - left, top - bottom, INK);
+        if (right > left && top > bottom) box(CANVAS_X + left, bottom, right - left, top - bottom, INK);
     }
 
     private void outcome() {
@@ -383,46 +381,15 @@ final class ScreenView implements Disposable {
         if (!g.saveMessage.isEmpty()) center(small, g.saveMessage, 640, 303, PINK);
     }
 
-    private void journal() {
-        panel(275, 76, 730, 569);
-        center(large, "Glossarium", 640, 612, PAPER);
-        String[] labels = {"1  Kanji", "2  Hiragana", "3  Katakana"};
-        for (int i = 0; i < labels.length; i++)
-            button(labels[i], 324 + i * 214, 505, 204, 42, g.glossaryTab.ordinal() == i);
-        center(small, (g.journalPage + 1) + " / " + g.glossarySize(), 640, 484, MUTED);
-
-        var entries = g.journalEntries();
-        if (g.journalPage >= entries.size()) {
-            var word = g.content.katakana.get(g.journalPage - entries.size());
-            center(large, word.text(), 640, 425, PAPER);
-            center(body, word.meaning() + "  /  " + word.romaji(), 640, 352, PAPER);
-            write(body, word.note(), 325, 295, 630, Align.center, MUTED);
-        } else {
-            var quiz = entries.get(g.journalPage);
-            if (g.glossaryTab == GameScreen.GlossaryTab.KANJI) {
-                template(quiz.kanji(), 580, 353, 120);
-                center(body, quiz.kanji() + "  /  " + quiz.reading() + "  /  "
-                    + g.templates.get(quiz.kanji()).size() + " strokes", 640, 342, PAPER);
-                if (g.run.phase == Phase.WALK) button("Practice (Q)", 530, 270, 220, 42, true);
-            } else {
-                boolean bossReading = g.glossaryTab == GameScreen.GlossaryTab.KATAKANA;
-                center(small, bossReading ? "MR. KOTOBA / READING IN KATAKANA" : "READING IN THIS SENTENCE", 640, 443, MUTED);
-                center(large, bossReading ? quiz.katakana() : quiz.reading(), 640, 408, PAPER);
-                center(body, "Kanji: " + quiz.kanji() + (bossReading ? "  /  Hiragana: " + quiz.reading() : ""), 640, 336, PAPER);
-            }
-            write(quizFont, quiz.completed(), 325, 250, 630, Align.center, PAPER);
-            write(body, quiz.english(), 325, 198, 630, Align.center, MUTED);
-        }
-        button("Previous", 312, 115, 180, 42, false);
-        button("Next", 788, 115, 180, 42, false);
-        button("Back", 530, 115, 220, 42, true);
-    }
-
     private void practice() {
-        var lesson = g.quizzes.stream().filter(quiz -> quiz.kanji().equals(g.practiceGlyph)).findFirst().orElseThrow();
         box(0, 0, 1280, 720, STAGE[g.run.stage]);
-        center(large, lesson.kanji(), 620, 590, ACCENT);
-        center(body, lesson.reading() + "  /  " + lesson.english(), 620, 486, PAPER);
+        center(large, g.practiceGlyph, 640, 590, ACCENT);
+        if (g.glossaryTab == GameScreen.GlossaryTab.KANJI) {
+            var quiz = g.journalEntries().get(g.journalPage);
+            center(body, quiz.reading() + "  /  " + quiz.english(), 640, 486, PAPER);
+        } else {
+            center(body, g.glossaryText() + "  /  " + (g.practiceIndex + 1) + " of " + g.glossaryText().length(), 640, 486, PAPER);
+        }
         box(0, 0, 1280, CANVAS_TOP, Color.WHITE);
         drawArea();
     }
@@ -479,35 +446,6 @@ final class ScreenView implements Disposable {
         }
     }
 
-    private void template(String id, float x, float y, float size) {
-        var strokes = g.templates.get(id);
-        float scale = size / 109;
-        int active = (int) (g.elapsed * 1.1) % strokes.size();
-        for (int index = 0; index < strokes.size(); index++) {
-            var path = strokes.get(index);
-            stroke(path, x, y + size, scale, LINE, 3);
-            var start = path.getFirst();
-            text(small, Integer.toString(index + 1), x + (float) start.x() * scale - 9,
-                y + size - (float) start.y() * scale + 9, MUTED);
-            if (index == active) {
-                int point = Math.min(path.size() - 1, (int) ((g.elapsed * 1.1 % 1) * path.size()));
-                var p = path.get(point);
-                box(x + (float) p.x() * scale - 2, y + size - (float) p.y() * scale - 2, 5, 5, ACCENT);
-            }
-        }
-    }
-
-    private void stroke(List<InkPoint> path, float x, float top, float scale, Color color, float width) {
-        for (int i = 1; i < path.size(); i++) {
-            var start = path.get(i - 1);
-            var end = path.get(i);
-            float dx = (float) (end.x() - start.x()) * scale, dy = (float) (start.y() - end.y()) * scale;
-            batch.setColor(color);
-            batch.draw(pixel, x + (float) start.x() * scale, top - (float) start.y() * scale - width / 2, 0, width / 2,
-                (float) Math.hypot(dx, dy), width, 1, 1, (float) Math.toDegrees(Math.atan2(dy, dx)), 0, 0, 1, 1, false, false);
-        }
-    }
-
     private void panel(float x, float y, float w, float h) {
         box(x, y, w, h, LINE);
         box(x + 2, y + 2, w - 4, h - 4, INK);
@@ -557,6 +495,7 @@ final class ScreenView implements Disposable {
         art.dispose();
         titleMenu.dispose();
         menus.dispose();
+        writing.dispose();
         pixelArt.dispose();
         pixel.dispose();
         cinematicSkip.dispose();

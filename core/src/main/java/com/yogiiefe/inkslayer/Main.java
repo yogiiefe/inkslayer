@@ -24,7 +24,14 @@ public final class Main extends Game {
     @Override public void create() {
         var content = new CampaignContent(Gdx.files.internal("data/campaign.json").readString("UTF-8"));
         var quizzes = FillQuiz.parse(Gdx.files.internal("data/fill-quizzes.tsv").readString("UTF-8"));
-        var source = new JsonReader().parse(Gdx.files.internal("data/kanji/fill-templates.json"));
+        var templates = readStrokes("fill-templates.json");
+        if (quizzes.stream().anyMatch(quiz -> !templates.containsKey(quiz.kanji())))
+            throw new IllegalArgumentException("Campaign quizzes must each have a drawing template.");
+        setScreen(new GameScreen(content, quizzes, templates, readStrokes("glossary-kana.json"), applyDisplay));
+    }
+
+    private static LinkedHashMap<String, List<List<InkPoint>>> readStrokes(String filename) {
+        var source = new JsonReader().parse(Gdx.files.internal("data/kanji/" + filename));
         var templates = new LinkedHashMap<String, List<List<InkPoint>>>();
         for (var glyph : source) {
             var strokes = new ArrayList<List<InkPoint>>();
@@ -35,9 +42,7 @@ public final class Main extends Game {
             }
             templates.put(glyph.name(), List.copyOf(strokes));
         }
-        if (quizzes.stream().anyMatch(quiz -> !templates.containsKey(quiz.kanji())))
-            throw new IllegalArgumentException("Campaign quizzes must each have a drawing template.");
-        setScreen(new GameScreen(content, quizzes, templates, applyDisplay));
+        return templates;
     }
     @Override public void dispose() { if(getScreen()!=null) getScreen().dispose(); }
 }

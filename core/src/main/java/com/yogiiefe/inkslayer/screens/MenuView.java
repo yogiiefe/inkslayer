@@ -9,6 +9,7 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.scenes.scene2d.utils.ScissorStack;
 import com.badlogic.gdx.utils.Disposable;
 import com.yogiiefe.inkslayer.audio.GameAudio.Channel;
+import com.yogiiefe.inkslayer.screens.GameScreen.GlossaryTab;
 import com.yogiiefe.inkslayer.screens.KeyBindings.Action;
 
 import static com.yogiiefe.inkslayer.screens.PixelArtViewport.*;
@@ -27,9 +28,14 @@ final class MenuView implements Disposable {
     private static final Color ALERT = Color.valueOf("ac252c"), BRUSH = Color.valueOf("ed1c24");
     private static final Color BRUSH_HOVER = Color.valueOf("bc1b27"), DIM = new Color(0, 0, 0, .72f);
     private static final Color SHADOW = Color.valueOf("404040");
-    private static final Color KEY_FOCUS = Color.valueOf("9b7ecc");
     private static final String KEYBINDS_LAYOUT = "keybindsLayout.png";
     private static final int KEY_BRUSH_WIDTH = 50, KEY_BRUSH_HEIGHT = 9;
+    private static final int KEY_BRUSH_LEFT_X = 166, KEY_BRUSH_RIGHT_X = 184;
+    private static final int[] SHAKE_OFFSETS = {2, -2, 1, -1};
+    private static final int GLOSSARY_CENTER_Y = (MenuButton.KANJI.top + MenuButton.KANJI.height
+        + MenuButton.PRACTICE.top) / 2;
+    private static final int GLOSSARY_CONTENT_WIDTH = 142, GLOSSARY_WRITING_HEIGHT = 40;
+    private static final int GLOSSARY_LABEL_HEIGHT = 5;
 
     private final Texture chapter = TitleMenu.load("newGameLayout.png");
     private final Texture chapterArt = chapterArt();
@@ -38,6 +44,8 @@ final class MenuView implements Disposable {
     private final Texture keyBrush = keyBrush();
     private final Texture saves = TitleMenu.load("savesLayout.png");
     private final Texture pause = TitleMenu.load("pauseLayout.png");
+    private final Texture glossary = TitleMenu.load("glossariumLayout.png");
+    private final GlossaryWriting writing;
     private final SpriteBatch batch;
     private final Texture pixel;
     private final MenuLettering lettering = new MenuLettering();
@@ -47,10 +55,11 @@ final class MenuView implements Disposable {
     private final Rectangle keybindClip = new Rectangle();
     private final GameScreen game;
 
-    MenuView(GameScreen game, SpriteBatch batch, Texture pixel) {
+    MenuView(GameScreen game, SpriteBatch batch, Texture pixel, GlossaryWriting writing) {
         this.game = game;
         this.batch = batch;
         this.pixel = pixel;
+        this.writing = writing;
     }
 
     void draw() {
@@ -60,6 +69,7 @@ final class MenuView implements Disposable {
             case SETTINGS -> settings();
             case KEYBINDS -> keybinds();
             case PAUSE -> pause();
+            case JOURNAL -> glossary();
             default -> throw new IllegalStateException("No menu for " + game.mode);
         }
     }
@@ -111,7 +121,7 @@ final class MenuView implements Disposable {
             for (int y = 0; y < KEY_BRUSH_HEIGHT; y++) {
                 int first = KEY_BRUSH_WIDTH, last = -1;
                 for (int x = 0; x < KEY_BRUSH_WIDTH; x++) {
-                    int rgba = source.pixmap.getPixel(184 + x, 61 + y);
+                    int rgba = source.pixmap.getPixel(KEY_BRUSH_RIGHT_X + x, 61 + y);
                     if ((rgba >>> 24) - (rgba >>> 16 & 255) > 90) {
                         artwork.pixmap.drawPixel(x, y, 0xffffffff);
                         first = Math.min(first, x);
@@ -188,7 +198,6 @@ final class MenuView implements Disposable {
         var state = state(control);
         boolean capturing = game.bindingKey && game.selectedBinding == action;
         int shift = state.shift, top = control.top - game.keybindScroll + shift;
-        if (capturing || state != State.IDLE) rect(control.x, top + 5, 1, 5, KEY_FOCUS);
         if (action == Action.UNDO) caption("UNDO", 91 + shift, top + 5, 49, 5, OUTLINE, false);
         else {
             batch.setColor(Color.WHITE);
@@ -200,19 +209,34 @@ final class MenuView implements Disposable {
         // Extend the centre of the brush so long key names still fit the column.
         int grow = Math.clamp((lettering.measure(value) + 9 - KEY_BRUSH_WIDTH) / 2, 0, 17);
         int half = KEY_BRUSH_WIDTH / 2;
-        int brushX = 193 + shift - half - grow, brushTop = top + 2;
+        int brushWidth = KEY_BRUSH_WIDTH + 2 * grow;
+        int baseX = action.ordinal() % 2 == 0 ? KEY_BRUSH_LEFT_X : KEY_BRUSH_RIGHT_X;
+        // Leave two pixels for the shake even when a long key name expands toward the rail.
+        int brushX = Math.min(baseX - grow, control.x + control.width - brushWidth - 2)
+            + shift + keyShakeOffset(action);
+        int brushTop = top + 2;
         drawRegion(batch, keyBrush, 0, 0, half, KEY_BRUSH_HEIGHT, brushX, brushTop);
         if (grow > 0) batch.draw(keyBrush, (brushX + half) * ART_PIXEL,
             (ART_HEIGHT - brushTop - KEY_BRUSH_HEIGHT) * ART_PIXEL, grow * 2 * ART_PIXEL,
             KEY_BRUSH_HEIGHT * ART_PIXEL, half, 0, 1, KEY_BRUSH_HEIGHT, false, false);
         drawRegion(batch, keyBrush, half, 0, half, KEY_BRUSH_HEIGHT, brushX + half + grow * 2, brushTop);
-        int textX = brushX + 4, textTop = top + 4, textWidth = KEY_BRUSH_WIDTH + grow * 2 - 8;
+        int textX = brushX + 4, textTop = top + 4, textWidth = brushWidth - 8;
         for (int y = -1; y <= 1; y++) {
             for (int x = -1; x <= 1; x++) {
                 if (x != 0 || y != 0) caption(value, textX + x, textTop + y, textWidth, 5, OUTLINE, true);
             }
         }
         caption(value, textX, textTop, textWidth, 5, PAPER, true);
+    }
+
+    private int keyShakeOffset(Action action) {
+        if (action != game.selectedBinding || game.bindingChangedAt < 0) return 0;
+        return shakeOffset(game.bindingChangedAt);
+    }
+
+    private int shakeOffset(double startedAt) {
+        int frame = (int) ((game.elapsed - startedAt) / .045);
+        return frame < SHAKE_OFFSETS.length ? SHAKE_OFFSETS[frame] : 0;
     }
 
     private void keybindRail() {
@@ -236,6 +260,63 @@ final class MenuView implements Disposable {
         batch.setColor(Color.WHITE);
         drawRegion(batch, keybinds, sourceX, sourceTop, button.width - state.shift, button.height - state.shift,
             button.x + state.shift, button.top + state.shift);
+    }
+
+    private void glossary() {
+        sheet(glossary);
+        rect(80, 52, 159, 12, PAPER);
+        glossaryTab(MenuButton.KANJI, GlossaryTab.KANJI, 84, 54, 30);
+        glossaryTab(MenuButton.HIRAGANA, GlossaryTab.HIRAGANA, 130, 56, 44);
+        glossaryTab(MenuButton.KATAKANA, GlossaryTab.KATAKANA, 191, 54, 47);
+        glossaryArrow(MenuButton.PREVIOUS, 80, 261);
+        glossaryArrow(MenuButton.NEXT, 236, 269);
+        var practice = MenuButton.PRACTICE;
+        var state = state(practice);
+        rect(practice.x, practice.top, practice.width, practice.height, PAPER);
+        if (game.run.phase == com.yogiiefe.inkslayer.world.CampaignRun.Phase.WALK) {
+            int sourceX = switch (state) { case IDLE -> 127; case HOVER -> 253; case PRESSED -> 254; };
+            int sourceTop = switch (state) { case IDLE -> 139; case HOVER -> 135; case PRESSED -> 150; };
+            batch.setColor(Color.WHITE);
+            drawRegion(batch, glossary, sourceX, sourceTop, practice.width - state.shift, practice.height - state.shift,
+                practice.x + state.shift + glossaryShakeOffset(practice), practice.top + state.shift);
+        }
+        back(glossary, glossaryShakeOffset(MenuButton.BACK));
+        int left = (ART_WIDTH - GLOSSARY_CONTENT_WIDTH) / 2;
+        int writingTop = GLOSSARY_CENTER_Y - GLOSSARY_WRITING_HEIGHT / 2;
+        // The tallest kanji leave about three pixels of clear space inside the writing frame.
+        int pageTop = writingTop - GLOSSARY_LABEL_HEIGHT;
+        int romajiTop = writingTop + GLOSSARY_WRITING_HEIGHT;
+        caption(game.glossaryTab.name() + "  " + (game.journalPage + 1) + "/" + game.glossarySize(),
+            left, pageTop, GLOSSARY_CONTENT_WIDTH, GLOSSARY_LABEL_HEIGHT, OUTLINE, true);
+        writing.drawWord(batch, game.glossaryText(), game.elapsed - game.pageStartedAt,
+            left, writingTop, GLOSSARY_CONTENT_WIDTH, GLOSSARY_WRITING_HEIGHT);
+        caption(game.glossaryRomaji(), left, romajiTop, GLOSSARY_CONTENT_WIDTH, GLOSSARY_LABEL_HEIGHT, OUTLINE, true);
+    }
+
+    private void glossaryTab(MenuButton tab, GlossaryTab category, int x, int sourceTop, int width) {
+        var state = state(tab);
+        boolean highlighted = state != State.IDLE || game.glossaryTab == category;
+        int drawX = x + glossaryShakeOffset(tab);
+        batch.setColor(Color.WHITE);
+        drawRegion(batch, glossary, x, sourceTop, width, 5, drawX, (highlighted ? 54 : 56) + state.shift);
+        if (highlighted) {
+            int sampleX = tab == MenuButton.KANJI ? 84 : 191;
+            int sampleWidth = tab == MenuButton.KANJI ? 30 : 47;
+            drawRegion(batch, glossary, sampleX, 60, sampleWidth, 3,
+                drawX + (width - sampleWidth) / 2, 60 + state.shift);
+        }
+    }
+
+    private int glossaryShakeOffset(MenuButton button) {
+        if (game.glossaryPressedButton != button || game.menuPress == button && game.menuHover != button) return 0;
+        return shakeOffset(game.glossaryPressedAt);
+    }
+
+    private void glossaryArrow(MenuButton button, int x, int sampleX) {
+        var state = state(button);
+        int sourceTop = switch (state) { case IDLE -> 92; case HOVER -> 71; case PRESSED -> 85; };
+        batch.setColor(Color.WHITE);
+        drawRegion(batch, glossary, state == State.IDLE ? x : sampleX, sourceTop, 5, 9, x, 92);
     }
 
     private void saves() {
@@ -297,13 +378,17 @@ final class MenuView implements Disposable {
     }
 
     private void back(Texture artwork) {
+        back(artwork, 0);
+    }
+
+    private void back(Texture artwork, int shake) {
         var button = MenuButton.BACK;
         var state = state(button);
         int sourceX = switch (state) { case IDLE -> button.x; case HOVER -> 256; case PRESSED -> 280; };
         rect(button.x, button.top, button.width, button.height, PAPER);
         batch.setColor(Color.WHITE);
         drawRegion(batch, artwork, sourceX, button.top + state.shift, button.width - state.shift, button.height - state.shift,
-            button.x + state.shift, button.top + state.shift);
+            button.x + state.shift + shake, button.top + state.shift);
     }
 
     private State state(MenuButton control) {
@@ -370,6 +455,7 @@ final class MenuView implements Disposable {
         lettering.dispose();
         saves.dispose();
         pause.dispose();
+        glossary.dispose();
     }
 
     private static final class MenuPixmap implements AutoCloseable {

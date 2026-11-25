@@ -42,8 +42,12 @@ final class KeyBindings {
             || action.alternate != 0 && keys.get(action) == action.defaultKey && Gdx.input.isKeyPressed(action.alternate);
     }
 
+    int primaryKey(Action action) {
+        return keys.get(action);
+    }
+
     String keycap(Action action) {
-        String name = Keys.toString(keys.get(action));
+        String name = Keys.toString(primaryKey(action));
         return action == Action.UNDO ? "Ctrl+" + name : name;
     }
 
