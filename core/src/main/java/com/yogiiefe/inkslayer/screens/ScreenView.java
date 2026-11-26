@@ -58,7 +58,7 @@ final class ScreenView implements Disposable {
             var chars = new StringBuilder(FreeTypeFontGenerator.DEFAULT_CHARS).append("←→×");
             g.quizzes.forEach(quiz -> chars.append(quiz.japanese()).append(quiz.kanji())
                 .append(quiz.reading()).append(quiz.katakana()));
-            chars.append("カユソ");
+            Kana.IN_ORDER.forEach(kana -> chars.append(kana.hiragana).append(kana.katakana));
             g.content.katakana.forEach(word -> chars.append(word.text()));
             String characters = chars.toString().codePoints().distinct()
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append).toString();
@@ -385,10 +385,10 @@ final class ScreenView implements Disposable {
         box(0, 0, 1280, 720, STAGE[g.run.stage]);
         center(large, g.practiceGlyph, 640, 590, ACCENT);
         if (g.glossaryTab == GameScreen.GlossaryTab.KANJI) {
-            var quiz = g.journalEntries().get(g.journalPage);
+            var quiz = g.quizzes.get(g.journalPage);
             center(body, quiz.reading() + "  /  " + quiz.english(), 640, 486, PAPER);
         } else {
-            center(body, g.glossaryText() + "  /  " + (g.practiceIndex + 1) + " of " + g.glossaryText().length(), 640, 486, PAPER);
+            center(body, g.glossaryRomaji(), 640, 486, PAPER);
         }
         box(0, 0, 1280, CANVAS_TOP, Color.WHITE);
         drawArea();

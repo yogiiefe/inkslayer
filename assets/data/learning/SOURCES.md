@@ -36,3 +36,9 @@ Gold, tree, and soil are vocabulary labels. Metal, Wood, and Earth are the corre
 | タオル | Towel | [Digital Daijisen](https://kotobank.jp/word/%E3%81%9F%E3%81%8A%E3%82%8B-3157938) |
 
 Recognition of the words in this table is the katakana learning target. ペット introduces the small ッ, ケージ introduces the vowel-length mark ー and ジ, and ブーツ includes ブ. The game should teach these marks in their word context before asking for independent recall.
+
+## Glossarium kana
+
+The two beginner charts each cover 46 modern basic kana in gojūon order. Romaji follows the Japan Foundation chart, including *shi*, *chi*, *tsu*, *fu*, and *o* for を／ヲ. [Marugoto Starter, Hiragana and Katakana tables](https://marugoto.jpf.go.jp/assets/docs/download/starter_a/MarugotoStarterWordbook_FR.pdf).
+
+Each character's Unicode code point identifies its KanjiVG stroke diagram. The animation and Practice use the same stroke paths. [Pinned revision, attribution and license](../../CREDITS.md).

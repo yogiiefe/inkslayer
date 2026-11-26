@@ -76,7 +76,6 @@ public final class GameScreen extends ScreenAdapter {
     boolean ending, endingPending, completed, assisted, strict, bindingKey;
     int panel, journalPage;
     double pageStartedAt;
-    int practiceIndex;
     int keybindScroll;
     Action selectedBinding = Action.LEFT;
     double bindingChangedAt = -1;
@@ -459,13 +458,15 @@ public final class GameScreen extends ScreenAdapter {
         if (drawing.isActive() || !canDraw()) return;
         boolean practice = mode == Mode.PRACTICE;
         if (practice && glossaryTab != GlossaryTab.KANJI) {
-            var result = kanaPractice.recognize(drawing.snapshot(), strict);
-            feedback = result.message();
+            var strokes = drawing.snapshot();
+            if (strokes.isEmpty()) {
+                feedback = "Draw " + practiceGlyph + " in the canvas.";
+                audio.play(Cue.RETRY);
+                return;
+            }
+            var result = kanaPractice.recognize(strokes, strict);
+            feedback = result.accepted() ? "Correct!" : result.message();
             audio.play(result.accepted() ? Cue.ACCEPT : Cue.RETRY);
-            if (result.accepted() && practiceIndex + 1 < glossaryText().length()) {
-                practiceIndex++;
-                startPracticeGlyph();
-            } else if (result.accepted()) feedback = "Correct!";
             return;
         }
         String target = practice ? practiceGlyph : quiz().kanji();
@@ -675,31 +676,21 @@ public final class GameScreen extends ScreenAdapter {
         showMenu(Mode.JOURNAL);
     }
 
-    List<FillQuiz> journalEntries() {
-        return glossaryTab == GlossaryTab.KATAKANA ? bossQuizzes : quizzes;
+    int glossarySize() {
+        return glossaryTab == GlossaryTab.KANJI ? quizzes.size() : Kana.IN_ORDER.size();
     }
-
-    private int journalSize() {
-        return journalEntries().size() + (glossaryTab == GlossaryTab.KATAKANA ? content.katakana.size() : 0);
-    }
-
-    int glossarySize() { return journalSize(); }
 
     String glossaryText() {
-        var entries = journalEntries();
-        if (journalPage >= entries.size()) return content.katakana.get(journalPage - entries.size()).text();
-        var quiz = entries.get(journalPage);
         return switch (glossaryTab) {
-            case KANJI -> quiz.kanji();
-            case HIRAGANA -> quiz.reading();
-            case KATAKANA -> quiz.katakana();
+            case KANJI -> quizzes.get(journalPage).kanji();
+            case HIRAGANA -> Kana.IN_ORDER.get(journalPage).hiragana;
+            case KATAKANA -> Kana.IN_ORDER.get(journalPage).katakana;
         };
     }
 
     String glossaryRomaji() {
-        var entries = journalEntries();
-        return journalPage < entries.size() ? entries.get(journalPage).romaji()
-            : content.katakana.get(journalPage - entries.size()).romaji();
+        return glossaryTab == GlossaryTab.KANJI ? quizzes.get(journalPage).romaji()
+            : Kana.IN_ORDER.get(journalPage).romaji();
     }
 
     private void selectGlossaryTab(int index) {
@@ -710,13 +701,8 @@ public final class GameScreen extends ScreenAdapter {
 
     private void practice() {
         if (run.phase != Phase.WALK) return;
-        practiceIndex = 0;
         mode = Mode.PRACTICE;
-        startPracticeGlyph();
-    }
-
-    private void startPracticeGlyph() {
-        practiceGlyph = glossaryText().substring(practiceIndex, practiceIndex + 1);
+        practiceGlyph = glossaryText();
         if (glossaryTab != GlossaryTab.KANJI)
             kanaPractice = KanjiRecognizer.fromTemplates(Map.of(practiceGlyph, kanaStrokes.get(practiceGlyph)), .145);
         clearDrawing();
@@ -885,7 +871,7 @@ public final class GameScreen extends ScreenAdapter {
             case GLOSSARIUM -> journal(mode);
             case KANJI, HIRAGANA, KATAKANA -> selectGlossaryTab(control.ordinal() - MenuButton.KANJI.ordinal());
             case PREVIOUS, NEXT -> {
-                journalPage = Math.floorMod(journalPage + (control == MenuButton.NEXT ? 1 : -1), journalSize());
+                journalPage = Math.floorMod(journalPage + (control == MenuButton.NEXT ? 1 : -1), glossarySize());
                 pageStartedAt = elapsed;
             }
             case PRACTICE -> practice();

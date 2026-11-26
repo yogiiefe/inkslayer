@@ -323,21 +323,28 @@ final class DesktopSmoke {
         require(g.glossarySize() == 39, "Kanji glossary coverage");
         key(Input.Keys.NUM_2);
         key(Input.Keys.LEFT);
-        require(g.glossarySize() == 39 && g.journalPage == 38, "Hiragana glossary navigation");
+        require(g.glossarySize() == 46 && "ん".equals(g.glossaryText()) && "n".equals(g.glossaryRomaji()),
+            "Hiragana glossary navigation");
         click(g, MenuButton.NEXT.centerX(), MenuButton.NEXT.centerY());
         require(g.journalPage == 0, "right arrow wraps to the first page");
         click(g, MenuButton.PRACTICE.centerX(), MenuButton.PRACTICE.centerY());
-        require(g.mode == Mode.PRACTICE && "み".equals(g.guideGlyph), "practice the displayed hiragana reading");
-        draw(g, "み");
+        require(g.mode == Mode.PRACTICE && "あ".equals(g.guideGlyph) && "a".equals(g.glossaryRomaji()),
+            "practice the first hiragana");
+        draw(g, "あ");
         key(Input.Keys.ENTER);
-        require("ず".equals(g.guideGlyph), "advance to the next kana after a correct submission");
+        require("Correct!".equals(g.feedback), "accept the displayed hiragana");
         key(Input.Keys.ESCAPE);
         click(g, MenuButton.KATAKANA.centerX(), MenuButton.KATAKANA.centerY());
         key(Input.Keys.LEFT);
-        require(g.glossarySize() == g.bossQuestionCount() + g.content.katakana.size()
+        require(g.glossarySize() == 46 && "ン".equals(g.glossaryText())
             && g.journalPage == g.glossarySize() - 1, "Katakana glossary coverage");
         key(Input.Keys.Q);
-        require(g.mode == Mode.PRACTICE && "タ".equals(g.guideGlyph), "practice a katakana word");
+        require(g.mode == Mode.PRACTICE && "ン".equals(g.guideGlyph), "practice the last katakana");
+        key(Input.Keys.ENTER);
+        require(g.feedback.contains("ン"), "prompt to draw the selected katakana on an empty canvas");
+        draw(g, "ン");
+        key(Input.Keys.ENTER);
+        require("Correct!".equals(g.feedback), "accept the displayed katakana");
         key(Input.Keys.ESCAPE);
         key(Input.Keys.NUM_1);
         key(Input.Keys.Q);

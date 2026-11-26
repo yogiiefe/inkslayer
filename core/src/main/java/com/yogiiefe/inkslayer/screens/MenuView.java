@@ -280,7 +280,7 @@ final class MenuView implements Disposable {
             drawRegion(batch, glossary, sourceX, sourceTop, practice.width - state.shift, practice.height - state.shift,
                 practice.x + state.shift + glossaryShakeOffset(practice), practice.top + state.shift);
         }
-        back(glossary, glossaryShakeOffset(MenuButton.BACK));
+        back(glossary);
         int left = (ART_WIDTH - GLOSSARY_CONTENT_WIDTH) / 2;
         int writingTop = GLOSSARY_CENTER_Y - GLOSSARY_WRITING_HEIGHT / 2;
         // The tallest kanji leave about three pixels of clear space inside the writing frame.
@@ -352,7 +352,6 @@ final class MenuView implements Disposable {
             lettering.wrapped(batch, "This deletes the checkpoint and its backup.", 93, 83, 134, OUTLINE);
             label(MenuButton.CANCEL_DELETE, "CANCEL");
             label(MenuButton.CONFIRM_DELETE, "DELETE");
-            back();
         }
     }
 
@@ -378,17 +377,13 @@ final class MenuView implements Disposable {
     }
 
     private void back(Texture artwork) {
-        back(artwork, 0);
-    }
-
-    private void back(Texture artwork, int shake) {
         var button = MenuButton.BACK;
         var state = state(button);
         int sourceX = switch (state) { case IDLE -> button.x; case HOVER -> 256; case PRESSED -> 280; };
         rect(button.x, button.top, button.width, button.height, PAPER);
         batch.setColor(Color.WHITE);
         drawRegion(batch, artwork, sourceX, button.top + state.shift, button.width - state.shift, button.height - state.shift,
-            button.x + state.shift + shake, button.top + state.shift);
+            button.x + state.shift, button.top + state.shift);
     }
 
     private State state(MenuButton control) {

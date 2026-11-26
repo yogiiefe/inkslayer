@@ -68,6 +68,6 @@ Rencana kampanye empat stage dan 40 encounter tersedia di [BUILD_PLAN.md](docs/B
 
 The Fill the Blank build uses monochrome pixel placeholders and DotGothic16 pixel text for Latin and Japanese. See the [quiz list](docs/FILL_THE_BLANK_QUIZZES.md) and [battle layout](docs/FILL_THE_BLANK_LAYOUT.md). Pronunciation recordings, human Japanese-language review and beginner handwriting calibration are pending.
 
-The Glossarium has tabs for all 39 tested Kanji, their contextual hiragana readings, and Kotoba's four katakana answers plus eight campaign vocabulary words. Switch tabs with 1–3 and browse with Left / Right.
+The Glossarium has tabs for all 39 tested Kanji, all 46 basic hiragana, and all 46 basic katakana. Each kana page shows one character in gojūon order, its romaji, and an animated stroke guide. Practice uses the character on the current page. Switch tabs with 1–3 and browse with Left / Right.
 
 See [GDD](docs/GDD.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md), [recognition](docs/RECOGNITION.md), and [asset manifest](docs/ASSET_MANIFEST.md). Font and KanjiVG attribution/licenses are in [credits](assets/CREDITS.md), also included in the JAR.
